@@ -3,810 +3,687 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HOLLOW CREEK ASYLUM - [REC]</title>
+    <title>HOLLOW CREEK ASYLUM - [REC] V2</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&display=swap');
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --nv-green: #0f0;
+            --nv-dark: #0a0;
+            --nv-dim: #060;
+            --danger-red: #f00;
+            --warn-yellow: #ff0;
+            --info-cyan: #0ff;
+            --bg-dark: #000;
+            --panel-bg: rgba(0, 15, 0, 0.85);
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Courier Prime', monospace;
-            background: #000;
-            color: #0f0;
+            background: var(--bg-dark);
+            color: var(--nv-green);
             min-height: 100vh;
             overflow-x: hidden;
             cursor: crosshair;
             transition: filter 0.5s ease;
         }
 
-        body.low-sanity {
-            filter: hue-rotate(20deg) saturate(1.5);
-        }
-
+        body.low-sanity { filter: hue-rotate(20deg) saturate(1.5); }
         body.critical-sanity {
             filter: hue-rotate(40deg) saturate(2) blur(0.5px);
             animation: sanityPulse 2s infinite;
         }
+        body.screen-shake { animation: screenShake 0.4s ease-out; }
 
         @keyframes sanityPulse {
             0%, 100% { filter: hue-rotate(40deg) saturate(2) blur(0.5px); }
             50% { filter: hue-rotate(60deg) saturate(2.5) blur(1px); }
         }
 
-        /* Camera HUD */
+        @keyframes screenShake {
+            0% { transform: translate(0,0) rotate(0); }
+            15% { transform: translate(-8px, 6px) rotate(-0.5deg); }
+            30% { transform: translate(6px, -8px) rotate(0.3deg); }
+            45% { transform: translate(-4px, 4px) rotate(-0.2deg); }
+            60% { transform: translate(4px, -2px) rotate(0.1deg); }
+            75% { transform: translate(-2px, 2px) rotate(-0.1deg); }
+            100% { transform: translate(0,0) rotate(0); }
+        }
+
+        /* ===== PARTICLE CANVAS ===== */
+        #particleCanvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 1;
+        }
+
+        /* ===== CAMERA HUD ===== */
         .hud {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1000;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 1000;
             font-family: 'VT323', monospace;
         }
 
+        /* Camera corner brackets */
+        .hud-corner { position: absolute; width: 40px; height: 40px; }
+        .hud-corner.tl { top: 15px; left: 15px; border-top: 3px solid var(--nv-green); border-left: 3px solid var(--nv-green); }
+        .hud-corner.tr { top: 15px; right: 15px; border-top: 3px solid var(--nv-green); border-right: 3px solid var(--nv-green); }
+        .hud-corner.bl { bottom: 15px; left: 15px; border-bottom: 3px solid var(--nv-green); border-left: 3px solid var(--nv-green); }
+        .hud-corner.br { bottom: 15px; right: 15px; border-bottom: 3px solid var(--nv-green); border-right: 3px solid var(--nv-green); }
+        .hud-corner { opacity: 0.6; filter: drop-shadow(0 0 4px var(--nv-green)); }
+
         .hud-top {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            justify-content: space-between;
-            color: #0f0;
-            font-size: 1.2em;
-            text-shadow: 0 0 10px #0f0;
+            position: absolute; top: 25px; left: 65px; right: 65px;
+            display: flex; justify-content: space-between; align-items: flex-start;
+            color: var(--nv-green); font-size: 1.1em;
+            text-shadow: 0 0 10px var(--nv-green);
         }
 
-        .recording {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
+        .recording { display: flex; align-items: center; gap: 8px; }
         .rec-dot {
-            width: 12px;
-            height: 12px;
-            background: #f00;
-            border-radius: 50%;
-            animation: blink 1s infinite;
-            box-shadow: 0 0 10px #f00;
+            width: 14px; height: 14px; background: var(--danger-red);
+            border-radius: 50%; animation: blink 1s infinite;
+            box-shadow: 0 0 12px var(--danger-red), 0 0 24px rgba(255,0,0,0.3);
         }
+        @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
 
-        @keyframes blink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0; }
+        .rec-label { color: var(--danger-red); font-weight: bold; letter-spacing: 3px; }
+
+        .hud-meters { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+
+        .meter { display: flex; align-items: center; gap: 8px; font-size: 0.95em; }
+        .meter-label { min-width: 65px; text-align: right; }
+        .meter-bar {
+            width: 110px; height: 14px; border: 1px solid var(--nv-green);
+            position: relative; box-shadow: 0 0 6px rgba(0,255,0,0.3);
+            overflow: hidden; background: rgba(0,0,0,0.5);
         }
-
-        .battery, .sanity {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .battery-bar, .sanity-bar {
-            width: 100px;
-            height: 20px;
-            border: 2px solid #0f0;
-            position: relative;
-            box-shadow: 0 0 10px #0f0;
-            overflow: hidden;
-        }
-
-        .battery-fill, .sanity-fill {
-            height: 100%;
-            background: #0f0;
+        .meter-fill {
+            height: 100%; background: var(--nv-green);
             transition: width 0.5s ease, background 0.3s ease;
-            box-shadow: 0 0 10px #0f0;
+            box-shadow: 0 0 8px var(--nv-green);
+            position: relative;
         }
+        .meter-fill::after {
+            content: ''; position: absolute; top: 0; right: 0;
+            width: 2px; height: 100%; background: rgba(255,255,255,0.6);
+        }
+        .meter-fill.low { background: var(--warn-yellow); box-shadow: 0 0 8px var(--warn-yellow); animation: meterWarn 0.5s infinite; }
+        .meter-fill.critical { background: var(--danger-red); box-shadow: 0 0 8px var(--danger-red); animation: meterWarn 0.3s infinite; }
+        @keyframes meterWarn { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-        .battery-fill.low, .sanity-fill.low {
-            background: #ff0;
-            animation: batteryWarning 0.5s infinite;
-        }
+        .meter-pct { min-width: 35px; font-size: 0.9em; }
 
-        .battery-fill.critical, .sanity-fill.critical {
-            background: #f00;
-            animation: batteryWarning 0.3s infinite;
+        /* Fear indicator */
+        .fear-indicator {
+            position: absolute; top: 70px; left: 65px;
+            display: flex; align-items: center; gap: 6px;
+            font-size: 0.9em; opacity: 0; transition: opacity 0.5s;
         }
-
-        @keyframes batteryWarning {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
+        .fear-indicator.visible { opacity: 1; }
+        .fear-text { color: var(--danger-red); text-shadow: 0 0 8px var(--danger-red); animation: fearPulse 1.5s infinite; }
+        @keyframes fearPulse { 0%,100% { opacity: 0.7; } 50% { opacity: 1; } }
 
         .timestamp {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            font-size: 1.2em;
-            color: #0f0;
-            text-shadow: 0 0 10px #0f0;
+            position: absolute; bottom: 25px; left: 65px;
+            font-size: 1.1em; color: var(--nv-green);
+            text-shadow: 0 0 10px var(--nv-green);
+        }
+        .scene-counter {
+            position: absolute; bottom: 45px; left: 65px;
+            font-size: 0.85em; color: var(--nv-dark); opacity: 0.7;
         }
 
-        /* Audio Controls */
-        .audio-controls {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            display: flex;
-            gap: 10px;
-            z-index: 1001;
+        /* ===== CONTROLS ===== */
+        .controls-bar {
+            position: fixed; bottom: 20px; right: 20px;
+            display: flex; gap: 8px; z-index: 1001;
             pointer-events: auto;
         }
 
-        .audio-btn {
-            background: rgba(0, 30, 0, 0.8);
-            border: 2px solid #0f0;
-            color: #0f0;
-            padding: 8px 12px;
-            font-family: 'VT323', monospace;
-            font-size: 1em;
-            cursor: pointer;
-            transition: all 0.2s ease;
+        .ctrl-btn {
+            background: rgba(0, 20, 0, 0.9); border: 1px solid var(--nv-green);
+            color: var(--nv-green); padding: 6px 10px;
+            font-family: 'VT323', monospace; font-size: 0.95em;
+            cursor: pointer; transition: all 0.2s ease;
         }
-
-        .audio-btn:hover {
+        .ctrl-btn:hover {
             background: rgba(0, 60, 0, 0.9);
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+            box-shadow: 0 0 12px rgba(0, 255, 0, 0.4);
         }
+        .ctrl-btn.muted, .ctrl-btn.off { border-color: #600; color: #600; }
+        .ctrl-btn.active-btn { border-color: var(--info-cyan); color: var(--info-cyan); }
 
-        .audio-btn.muted {
-            border-color: #f00;
-            color: #f00;
+        /* ===== SETTINGS PANEL ===== */
+        .settings-panel {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0, 10, 0, 0.97); border: 2px solid var(--nv-green);
+            padding: 30px; z-index: 6000; display: none; min-width: 320px;
+            box-shadow: 0 0 60px rgba(0,255,0,0.3), inset 0 0 30px rgba(0,0,0,0.9);
+            font-family: 'VT323', monospace;
         }
+        .settings-panel.open { display: block; }
+        .settings-panel h2 { color: var(--info-cyan); text-align: center; margin-bottom: 20px; font-size: 1.4em; letter-spacing: 3px; }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; margin: 14px 0; }
+        .setting-row label { color: var(--nv-green); font-size: 1.1em; }
+        .setting-row input[type="range"] {
+            -webkit-appearance: none; appearance: none; width: 120px; height: 6px;
+            background: #030; border-radius: 0; outline: none;
+        }
+        .setting-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 14px; height: 14px;
+            background: var(--nv-green); cursor: pointer;
+        }
+        .setting-close {
+            display: block; margin: 20px auto 0; background: transparent;
+            border: 1px solid var(--info-cyan); color: var(--info-cyan);
+            padding: 8px 24px; cursor: pointer; font-family: 'VT323', monospace;
+            font-size: 1.1em;
+        }
+        .setting-close:hover { background: rgba(0,255,255,0.1); }
 
-        /* Camera Effects */
+        /* ===== CAMERA EFFECTS ===== */
         .camera-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 999;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 999;
         }
-
         .camera-overlay::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, transparent 20%, rgba(0, 0, 0, 0.85) 100%);
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.9) 100%);
         }
-
         .camera-overlay::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: repeating-linear-gradient(
                 0deg,
-                rgba(0, 255, 0, 0.02) 0px,
-                transparent 1px,
-                transparent 2px,
-                rgba(0, 255, 0, 0.02) 3px
+                rgba(0, 255, 0, 0.015) 0px, transparent 1px,
+                transparent 2px, rgba(0, 255, 0, 0.015) 3px
             );
             animation: scanlines 0.1s linear infinite;
         }
+        @keyframes scanlines { 0% { transform: translateY(0); } 100% { transform: translateY(3px); } }
 
-        @keyframes scanlines {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(3px); }
+        /* VHS tracking line */
+        .vhs-tracking {
+            position: fixed; left: 0; width: 100%; height: 3px;
+            background: rgba(0,255,0,0.15); pointer-events: none;
+            z-index: 999; animation: vhsTrack 8s linear infinite;
+            box-shadow: 0 0 15px rgba(0,255,0,0.1);
+        }
+        @keyframes vhsTrack { 0% { top: -3px; } 100% { top: 100%; } }
+
+        /* Chromatic aberration (on demand) */
+        .chromatic-active .game-container {
+            text-shadow: -2px 0 rgba(255,0,0,0.15), 2px 0 rgba(0,255,255,0.15);
+            animation: chromatic 0.15s infinite;
+        }
+        @keyframes chromatic {
+            0% { text-shadow: -2px 0 rgba(255,0,0,0.15), 2px 0 rgba(0,255,255,0.15); }
+            50% { text-shadow: 2px 0 rgba(255,0,0,0.2), -2px 0 rgba(0,255,255,0.2); }
+            100% { text-shadow: -1px 0 rgba(255,0,0,0.1), 1px 0 rgba(0,255,255,0.1); }
         }
 
         .grain {
-            position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            pointer-events: none;
-            z-index: 998;
-            opacity: 0.08;
-            background: repeating-radial-gradient(circle, transparent 0, rgba(0, 255, 0, 0.3) 2px, transparent 3px);
-            animation: grain 0.2s steps(10) infinite;
+            position: fixed; top: -50%; left: -50%; width: 200%; height: 200%;
+            pointer-events: none; z-index: 998; opacity: 0.06;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+            animation: grain 0.15s steps(8) infinite;
         }
-
         @keyframes grain {
             0%, 100% { transform: translate(0, 0); }
             10% { transform: translate(-5%, -5%); }
-            20% { transform: translate(-10%, 5%); }
             30% { transform: translate(5%, -10%); }
-            40% { transform: translate(-5%, 15%); }
             50% { transform: translate(-15%, 5%); }
-            60% { transform: translate(15%, 0%); }
             70% { transform: translate(0%, 15%); }
-            80% { transform: translate(-10%, 10%); }
             90% { transform: translate(10%, 5%); }
         }
 
-        /* Game Container */
+        /* ===== GAME CONTAINER ===== */
         .game-container {
-            position: relative;
-            z-index: 2;
-            max-width: 960px;
-            width: 95%;
-            margin: 50px auto;
-            padding: 30px;
-            background: rgba(0, 15, 0, 0.85);
-            border: 2px solid #0f0;
-            box-shadow: 
-                0 0 40px rgba(0, 255, 0, 0.4),
-                inset 0 0 40px rgba(0, 0, 0, 0.9);
-            opacity: 0;
-            transform: translateY(20px);
-            animation: containerFadeIn 1s ease forwards;
+            position: relative; z-index: 2;
+            max-width: 940px; width: 92%; margin: 60px auto;
+            padding: 28px; background: var(--panel-bg);
+            border: 1px solid rgba(0,255,0,0.4);
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.15), inset 0 0 50px rgba(0, 0, 0, 0.95);
+            opacity: 0; transform: translateY(20px);
+            animation: containerFadeIn 1s ease forwards 0.3s;
         }
+        @keyframes containerFadeIn { to { opacity: 1; transform: translateY(0); } }
 
-        @keyframes containerFadeIn {
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Title */
-        .title {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
+        /* ===== TITLE ===== */
+        .title { text-align: center; margin-bottom: 18px; }
         .title h1 {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 2.8em;
-            color: #0f0;
-            text-shadow: 0 0 25px #0f0, 0 0 50px rgba(0, 255, 0, 0.5);
-            letter-spacing: 4px;
-            animation: titleFlicker 4s infinite;
+            font-family: 'Share Tech Mono', monospace; font-size: 2.6em;
+            color: var(--nv-green);
+            text-shadow: 0 0 25px var(--nv-green), 0 0 50px rgba(0,255,0,0.4);
+            letter-spacing: 5px; animation: titleFlicker 4s infinite;
         }
-
         @keyframes titleFlicker {
-            0%, 100% { opacity: 1; text-shadow: 0 0 25px #0f0; }
-            41%, 43% { opacity: 0.85; text-shadow: 0 0 15px #0f0; }
-            44%, 46% { opacity: 0.95; text-shadow: 0 0 20px #0f0; }
-            48% { opacity: 0.9; }
+            0%, 100% { opacity: 1; text-shadow: 0 0 25px var(--nv-green); }
+            41%, 43% { opacity: 0.85; text-shadow: 0 0 10px var(--nv-green); }
+            44%, 46% { opacity: 0.95; text-shadow: 0 0 20px var(--nv-green); }
+            48% { opacity: 0.88; }
         }
-
         .subtitle {
-            font-family: 'VT323', monospace;
-            font-size: 1.2em;
-            color: #0a0;
-            margin-top: 8px;
-            letter-spacing: 2px;
+            font-family: 'VT323', monospace; font-size: 1.15em;
+            color: var(--nv-dark); margin-top: 6px; letter-spacing: 3px;
         }
 
-        /* Location */
+        /* ===== LOCATION ===== */
         .location {
-            text-align: center;
-            padding: 14px 20px;
-            background: rgba(0, 0, 0, 0.8);
-            border: 2px solid #0f0;
-            margin-bottom: 20px;
-            font-size: 1.2em;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.25);
+            text-align: center; padding: 12px 18px;
+            background: rgba(0, 0, 0, 0.85); border: 1px solid var(--nv-green);
+            margin-bottom: 16px; font-size: 1.1em;
+            text-transform: uppercase; letter-spacing: 3px;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.15);
             transition: all 0.5s ease;
+            font-family: 'VT323', monospace;
         }
-
         .location.danger {
-            border-color: #f00;
-            box-shadow: 0 0 25px rgba(255, 0, 0, 0.4);
-            color: #f00;
+            border-color: var(--danger-red); color: var(--danger-red);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+            animation: locationDanger 2s infinite;
+        }
+        @keyframes locationDanger {
+            0%,100% { box-shadow: 0 0 20px rgba(255,0,0,0.3); }
+            50% { box-shadow: 0 0 35px rgba(255,0,0,0.5); }
         }
 
-        /* Characters */
+        /* ===== CHARACTERS ===== */
         .character-status {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin-bottom: 20px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+            gap: 10px; margin-bottom: 16px;
         }
-
         .character {
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #0f0;
-            padding: 14px;
-            text-align: center;
-            position: relative;
-            transition: all 0.4s ease;
-            overflow: hidden;
+            background: rgba(0, 0, 0, 0.9); border: 1px solid var(--nv-dim);
+            padding: 12px 8px; text-align: center; position: relative;
+            transition: all 0.4s ease; overflow: hidden;
         }
-
         .character::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.08), transparent);
-            animation: characterSweep 3s infinite;
+            content: ''; position: absolute; top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.06), transparent);
+            animation: charSweep 4s infinite;
         }
-
-        @keyframes characterSweep {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-
+        @keyframes charSweep { 0% { left: -100%; } 100% { left: 100%; } }
         .character.dead {
-            opacity: 0.25;
-            border-color: #f00;
-            filter: grayscale(1);
+            opacity: 0.2; border-color: #600; filter: grayscale(1);
         }
-
         .character.dead::after {
-            content: '[DECEASED]';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #f00;
-            font-weight: bold;
-            font-size: 1.1em;
-            text-shadow: 0 0 10px #f00;
+            content: '[DECEASED]'; position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); color: var(--danger-red);
+            font-weight: bold; font-size: 1em; text-shadow: 0 0 8px var(--danger-red);
+            font-family: 'VT323', monospace;
         }
+        .character-icon { font-size: 2.4em; display: block; margin-bottom: 6px; filter: drop-shadow(0 0 6px var(--nv-green)); }
+        .character-name { font-weight: bold; font-size: 0.95em; margin-bottom: 3px; font-family: 'VT323', monospace; letter-spacing: 1px; }
+        .character-state { font-size: 0.8em; color: var(--nv-dark); font-style: italic; }
 
-        .character-icon {
-            font-size: 2.6em;
-            display: block;
-            margin-bottom: 8px;
-            filter: drop-shadow(0 0 8px #0f0);
-        }
-
-        .character-name {
-            font-weight: bold;
-            font-size: 1em;
-            margin-bottom: 4px;
-        }
-
-        .character-state {
-            font-size: 0.85em;
-            color: #0a0;
-            font-style: italic;
-        }
-
-        /* Story Section */
+        /* ===== STORY SECTION ===== */
         .story-section {
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #0f0;
-            padding: 24px;
-            margin-bottom: 20px;
-            min-height: 280px;
-            position: relative;
-            box-shadow: inset 0 0 30px rgba(0, 255, 0, 0.08);
+            background: rgba(0, 0, 0, 0.92); border: 1px solid rgba(0,255,0,0.2);
+            padding: 22px; margin-bottom: 18px; min-height: 260px;
+            position: relative; box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
         }
-
         .story-text {
-            font-size: 1.1em;
-            line-height: 1.85;
-            color: #0f0;
-            text-shadow: 0 0 4px #0f0;
-            margin-bottom: 16px;
+            font-size: 1.05em; line-height: 1.9; color: var(--nv-green);
+            text-shadow: 0 0 3px rgba(0,255,0,0.5); margin-bottom: 14px;
         }
-
         .story-text .typewriter-cursor {
-            display: inline-block;
-            width: 10px;
-            height: 1.2em;
-            background: #0f0;
-            margin-left: 2px;
-            animation: cursorBlink 0.8s infinite;
-            vertical-align: text-bottom;
+            display: inline-block; width: 8px; height: 1.15em;
+            background: var(--nv-green); margin-left: 2px;
+            animation: cursorBlink 0.7s infinite; vertical-align: text-bottom;
+        }
+        @keyframes cursorBlink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
+
+        /* Glitch text effect */
+        .glitch-text {
+            position: relative; display: inline;
+        }
+        .glitch-text::before, .glitch-text::after {
+            content: attr(data-text); position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+        .glitch-text::before {
+            color: rgba(255,0,0,0.6); animation: glitch1 0.3s infinite;
+            clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
+        }
+        .glitch-text::after {
+            color: rgba(0,255,255,0.6); animation: glitch2 0.3s infinite;
+            clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+        }
+        @keyframes glitch1 {
+            0% { transform: translate(0); } 20% { transform: translate(-3px, 1px); }
+            40% { transform: translate(3px, -1px); } 60% { transform: translate(-1px, 2px); }
+            80% { transform: translate(2px, -2px); } 100% { transform: translate(0); }
+        }
+        @keyframes glitch2 {
+            0% { transform: translate(0); } 20% { transform: translate(3px, -1px); }
+            40% { transform: translate(-3px, 2px); } 60% { transform: translate(1px, -2px); }
+            80% { transform: translate(-2px, 1px); } 100% { transform: translate(0); }
         }
 
-        @keyframes cursorBlink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0; }
-        }
-
-        /* Document */
+        /* ===== DOCUMENTS ===== */
         .document {
-            background: rgba(0, 40, 0, 0.5);
-            border-left: 4px solid #0f0;
-            padding: 14px;
-            margin: 18px 0;
-            font-family: 'Courier Prime', monospace;
-            font-style: italic;
-            color: #0f0;
-            box-shadow: 0 0 12px rgba(0, 255, 0, 0.25);
-            animation: documentSlide 0.5s ease;
+            background: rgba(0, 35, 0, 0.5); border-left: 3px solid var(--nv-green);
+            padding: 14px 14px 14px 18px; margin: 16px 0;
+            font-family: 'Courier Prime', monospace; font-style: italic;
+            color: var(--nv-green); box-shadow: 0 0 10px rgba(0,255,0,0.15);
+            animation: docSlide 0.6s ease;
         }
-
-        @keyframes documentSlide {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-
+        @keyframes docSlide { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
         .document::before {
-            content: '📄 DOCUMENT FOUND';
-            display: block;
-            font-weight: bold;
-            font-style: normal;
-            margin-bottom: 8px;
-            color: #0ff;
-            text-shadow: 0 0 8px #0ff;
+            content: '[ DOCUMENT FOUND ]'; display: block; font-weight: bold;
+            font-style: normal; margin-bottom: 6px; color: var(--info-cyan);
+            text-shadow: 0 0 6px var(--info-cyan); font-family: 'VT323', monospace;
+            letter-spacing: 1px;
         }
 
-        /* Warning */
+        /* ===== WARNINGS ===== */
         .warning {
-            background: rgba(80, 0, 0, 0.6);
-            border: 2px solid #f00;
-            padding: 14px;
-            margin: 18px 0;
-            color: #f00;
-            text-align: center;
-            font-weight: bold;
-            animation: warningPulse 1.2s infinite;
-            box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
+            background: rgba(80, 0, 0, 0.5); border: 1px solid var(--danger-red);
+            padding: 12px; margin: 16px 0; color: var(--danger-red);
+            text-align: center; font-weight: bold;
+            animation: warnPulse 1.2s infinite;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.3);
+            font-family: 'VT323', monospace; letter-spacing: 2px;
         }
+        @keyframes warnPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 15px rgba(255,0,0,0.3); }
+            50% { opacity: 0.7; box-shadow: 0 0 25px rgba(255,0,0,0.5); }
+        }
+        .warning::before { content: '⚠ '; }
 
-        @keyframes warningPulse {
-            0%, 100% { opacity: 1; box-shadow: 0 0 20px rgba(255, 0, 0, 0.4); }
-            50% { opacity: 0.7; box-shadow: 0 0 30px rgba(255, 0, 0, 0.6); }
-        }
-
-        .warning::before {
-            content: '⚠️ ';
-            font-size: 1.3em;
-        }
-
-        /* Choices */
-        .choices {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+        /* ===== CHOICES ===== */
+        .choices { display: flex; flex-direction: column; gap: 10px; }
 
         .choice {
-            background: rgba(0, 40, 0, 0.7);
-            border: 2px solid #0f0;
-            padding: 16px 22px;
-            font-size: 1.05em;
-            font-family: 'Courier Prime', monospace;
-            color: #0f0;
-            text-align: left;
-            cursor: pointer;
-            position: relative;
-            transition: all 0.25s ease;
-            text-shadow: 0 0 4px #0f0;
-            opacity: 0;
-            transform: translateX(-15px);
-            animation: choiceFadeIn 0.4s ease forwards;
+            background: rgba(0, 30, 0, 0.6); border: 1px solid var(--nv-green);
+            padding: 14px 20px; font-size: 1em;
+            font-family: 'Courier Prime', monospace; color: var(--nv-green);
+            text-align: left; cursor: pointer; position: relative;
+            transition: all 0.2s ease; text-shadow: 0 0 3px rgba(0,255,0,0.3);
+            opacity: 0; transform: translateX(-15px);
+            animation: choiceIn 0.4s ease forwards;
         }
-
-        .choice:nth-child(1) { animation-delay: 0.1s; }
-        .choice:nth-child(2) { animation-delay: 0.2s; }
-        .choice:nth-child(3) { animation-delay: 0.3s; }
-        .choice:nth-child(4) { animation-delay: 0.4s; }
-
-        @keyframes choiceFadeIn {
-            to { opacity: 1; transform: translateX(0); }
-        }
-
-        .choice::before {
-            content: '> ';
-            color: #0f0;
-            font-weight: bold;
-        }
-
+        .choice:nth-child(1) { animation-delay: 0.15s; }
+        .choice:nth-child(2) { animation-delay: 0.3s; }
+        .choice:nth-child(3) { animation-delay: 0.45s; }
+        .choice:nth-child(4) { animation-delay: 0.6s; }
+        @keyframes choiceIn { to { opacity: 1; transform: translateX(0); } }
+        .choice::before { content: '> '; color: var(--nv-green); font-weight: bold; }
         .choice:hover {
-            background: rgba(0, 80, 0, 0.9);
-            transform: translateX(8px);
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.45);
+            background: rgba(0, 70, 0, 0.85); transform: translateX(6px);
+            box-shadow: 0 0 18px rgba(0,255,0,0.35);
+            border-color: rgba(0,255,0,0.8);
         }
-
-        .choice.dangerous {
-            border-color: #ff0;
-            color: #ff0;
-            text-shadow: 0 0 4px #ff0;
+        .choice .key-hint {
+            position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+            background: rgba(0,0,0,0.5); border: 1px solid var(--nv-dim);
+            padding: 2px 8px; font-size: 0.8em; color: var(--nv-dark);
+            font-family: 'VT323', monospace;
         }
-
-        .choice.dangerous:hover {
-            background: rgba(80, 80, 0, 0.9);
-            box-shadow: 0 0 20px rgba(255, 255, 0, 0.45);
-        }
-
+        .choice.dangerous { border-color: var(--warn-yellow); color: var(--warn-yellow); text-shadow: 0 0 3px rgba(255,255,0,0.3); }
+        .choice.dangerous:hover { background: rgba(60,60,0,0.8); box-shadow: 0 0 18px rgba(255,255,0,0.35); }
         .choice.critical {
-            border-color: #f00;
-            color: #f00;
-            text-shadow: 0 0 4px #f00;
-            animation: choiceFadeIn 0.4s ease forwards, criticalPulse 1.5s infinite;
+            border-color: var(--danger-red); color: var(--danger-red);
+            text-shadow: 0 0 3px rgba(255,0,0,0.3);
+            animation: choiceIn 0.4s ease forwards, critPulse 1.5s infinite;
+        }
+        .choice.critical:hover { background: rgba(70,0,0,0.8); box-shadow: 0 0 20px rgba(255,0,0,0.4); }
+        @keyframes critPulse { 0%,100% { box-shadow: 0 0 6px rgba(255,0,0,0.3); } 50% { box-shadow: 0 0 18px rgba(255,0,0,0.6); } }
+        .choice.disabled { opacity: 0.25; cursor: not-allowed; border-color: #333; color: #333; }
+        .choice.disabled:hover { transform: none; background: rgba(0,30,0,0.6); box-shadow: none; }
+        .restart { background: rgba(0,0,60,0.6); border-color: var(--info-cyan); color: var(--info-cyan); }
+        .restart:hover { background: rgba(0,0,100,0.8); box-shadow: 0 0 18px rgba(0,255,255,0.35); }
+
+        /* Timed choice bar */
+        .choice-timer {
+            position: absolute; bottom: 0; left: 0; height: 3px;
+            background: var(--danger-red); box-shadow: 0 0 6px var(--danger-red);
+            transition: width linear;
         }
 
-        .choice.critical:hover {
-            background: rgba(80, 0, 0, 0.9);
-            box-shadow: 0 0 25px rgba(255, 0, 0, 0.5);
+        /* ===== PUZZLE PANEL ===== */
+        .puzzle-panel {
+            background: rgba(0,0,0,0.95); border: 2px solid var(--info-cyan);
+            padding: 24px; margin: 16px 0; text-align: center;
+            box-shadow: 0 0 30px rgba(0,255,255,0.2);
         }
-
-        @keyframes criticalPulse {
-            0%, 100% { box-shadow: 0 0 8px rgba(255, 0, 0, 0.4); }
-            50% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.7); }
+        .puzzle-panel h3 { color: var(--info-cyan); font-family: 'VT323', monospace; margin-bottom: 14px; letter-spacing: 2px; }
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 200px; margin: 12px auto; }
+        .keypad-btn {
+            background: rgba(0,30,30,0.8); border: 1px solid var(--info-cyan);
+            color: var(--info-cyan); padding: 12px; font-size: 1.3em;
+            font-family: 'VT323', monospace; cursor: pointer; transition: all 0.15s;
         }
-
-        .choice.disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-            border-color: #444;
-            color: #444;
+        .keypad-btn:hover { background: rgba(0,80,80,0.8); box-shadow: 0 0 12px rgba(0,255,255,0.3); }
+        .keypad-display {
+            background: rgba(0,0,0,0.9); border: 1px solid var(--info-cyan);
+            padding: 10px; margin-bottom: 12px; font-size: 1.8em;
+            font-family: 'VT323', monospace; color: var(--info-cyan);
+            letter-spacing: 8px; min-height: 44px;
         }
+        .puzzle-feedback { margin-top: 10px; font-family: 'VT323', monospace; font-size: 1.1em; }
+        .puzzle-feedback.error { color: var(--danger-red); }
+        .puzzle-feedback.success { color: var(--nv-green); }
 
-        .choice.disabled:hover {
-            transform: none;
-            background: rgba(0, 40, 0, 0.7);
-            box-shadow: none;
-        }
-
-        .restart {
-            background: rgba(0, 0, 80, 0.7);
-            border-color: #0ff;
-            color: #0ff;
-        }
-
-        .restart:hover {
-            background: rgba(0, 0, 120, 0.9);
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.45);
-        }
-
-        /* Screen Effects */
+        /* ===== SCREEN EFFECTS ===== */
         .static-effect {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 9999;
-            background: rgba(255, 255, 255, 0.1);
-            animation: staticAnim 0.08s infinite;
-            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 9999;
+            background: repeating-linear-gradient(
+                0deg, rgba(255,255,255,0.03) 0px, transparent 1px, transparent 2px
+            );
+            animation: staticAnim 0.06s infinite; display: none;
         }
+        .static-effect.active { display: block; }
+        @keyframes staticAnim { 0% { opacity: 0.15; } 50% { opacity: 0.25; } 100% { opacity: 0.1; } }
 
-        .static-effect.active {
-            display: block;
+        .blood-effect, .flash-effect {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 9999; display: none;
         }
+        .blood-effect { background: radial-gradient(circle, transparent 30%, rgba(255,0,0,0.5) 100%); animation: bloodPulse 0.6s ease-out; }
+        .blood-effect.active { display: block; }
+        @keyframes bloodPulse { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
 
-        @keyframes staticAnim {
-            0% { opacity: 0.08; }
-            50% { opacity: 0.15; }
-            100% { opacity: 0.08; }
-        }
+        .flash-effect { background: rgba(255,255,255,0.8); animation: flashBang 0.3s ease-out; }
+        .flash-effect.active { display: block; }
+        @keyframes flashBang { 0% { opacity: 1; } 100% { opacity: 0; } }
 
-        .blood-effect {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 9999;
-            background: radial-gradient(circle, transparent 35%, rgba(255, 0, 0, 0.5) 100%);
-            display: none;
-            animation: bloodPulse 0.6s ease-out;
-        }
-
-        .blood-effect.active {
-            display: block;
-        }
-
-        @keyframes bloodPulse {
-            0% { opacity: 0; }
-            30% { opacity: 1; }
-            100% { opacity: 0; }
-        }
-
-        /* Inventory */
+        /* ===== INVENTORY ===== */
         .inventory {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 18px;
-            padding: 14px;
-            background: rgba(0, 0, 0, 0.9);
-            border: 2px solid #0f0;
+            display: flex; gap: 6px; margin-bottom: 14px; padding: 12px;
+            background: rgba(0, 0, 0, 0.9); border: 1px solid var(--nv-dim);
             flex-wrap: wrap;
         }
-
-        .inventory-label {
-            color: #0f0;
-            font-weight: bold;
-            width: 100%;
-            margin-bottom: 6px;
-        }
-
+        .inventory-label { color: var(--nv-green); font-weight: bold; width: 100%; margin-bottom: 4px; font-family: 'VT323', monospace; }
         .item {
-            background: rgba(0, 40, 0, 0.7);
-            border: 1px solid #0f0;
-            padding: 6px 12px;
-            font-size: 0.85em;
-            box-shadow: 0 0 8px rgba(0, 255, 0, 0.25);
-            animation: itemPop 0.3s ease;
+            background: rgba(0, 30, 0, 0.6); border: 1px solid var(--nv-dim);
+            padding: 4px 10px; font-size: 0.82em; box-shadow: 0 0 6px rgba(0,255,0,0.15);
+            animation: itemPop 0.3s ease; font-family: 'VT323', monospace;
         }
+        @keyframes itemPop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-        @keyframes itemPop {
-            from { transform: scale(0.8); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
+        /* ===== ACHIEVEMENTS ===== */
+        .achievement-popup {
+            position: fixed; top: -80px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,10,0,0.95); border: 2px solid gold;
+            padding: 14px 24px; z-index: 8000;
+            transition: top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 0 30px rgba(255,215,0,0.3);
+            text-align: center; font-family: 'VT323', monospace;
+            min-width: 260px;
         }
+        .achievement-popup.show { top: 80px; }
+        .achievement-popup .ach-icon { font-size: 2em; display: block; margin-bottom: 4px; }
+        .achievement-popup .ach-title { color: gold; font-size: 1.2em; letter-spacing: 1px; }
+        .achievement-popup .ach-desc { color: #ccc; font-size: 0.95em; margin-top: 4px; }
 
-        /* Loading Screen */
+        /* ===== LOADING SCREEN ===== */
         .loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: #0f0;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 10000; display: flex;
+            flex-direction: column; justify-content: center; align-items: center;
+            color: var(--nv-green); font-family: 'VT323', monospace;
         }
+        .boot-sequence { text-align: left; max-width: 500px; width: 90%; margin-bottom: 30px; }
+        .boot-line {
+            opacity: 0; animation: bootLine 0.3s ease forwards;
+            font-size: 1em; margin: 4px 0; color: var(--nv-dark);
+        }
+        .boot-line.ok { color: var(--nv-green); }
+        .boot-line.warn { color: var(--warn-yellow); }
+        .boot-line.err { color: var(--danger-red); }
+        @keyframes bootLine { to { opacity: 1; } }
 
         .loading-text {
-            font-size: 1.8em;
-            font-family: 'VT323', monospace;
-            margin-bottom: 25px;
-            text-shadow: 0 0 20px #0f0;
-            letter-spacing: 2px;
+            font-size: 1.6em; margin-bottom: 20px;
+            text-shadow: 0 0 20px var(--nv-green); letter-spacing: 3px;
         }
-
         .loading-bar {
-            width: 280px;
-            height: 26px;
-            border: 2px solid #0f0;
-            position: relative;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+            width: 300px; height: 18px; border: 1px solid var(--nv-green);
+            position: relative; box-shadow: 0 0 15px rgba(0,255,0,0.3);
         }
-
         .loading-fill {
-            height: 100%;
-            background: #0f0;
-            width: 0%;
-            animation: loading 2.5s ease-in-out forwards;
-            box-shadow: 0 0 15px #0f0;
+            height: 100%; background: var(--nv-green); width: 0%;
+            animation: load 3s ease-in-out forwards;
+            box-shadow: 0 0 10px var(--nv-green);
         }
+        @keyframes load { 0% { width: 0%; } 20% { width: 15%; } 40% { width: 35%; } 60% { width: 55%; } 80% { width: 80%; } 100% { width: 100%; } }
+        .loading-info { margin-top: 20px; font-size: 1em; text-align: center; line-height: 1.8; color: var(--nv-dark); }
 
-        @keyframes loading {
-            0% { width: 0%; }
-            100% { width: 100%; }
-        }
-
-        .loading-info {
-            margin-top: 25px;
-            font-family: 'VT323', monospace;
-            font-size: 1.1em;
-            text-align: center;
-            line-height: 1.8;
-            color: #0a0;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* Scene Transition */
         .scene-transition {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #000;
-            z-index: 5000;
-            opacity: 0;
-            pointer-events: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 5000; opacity: 0; pointer-events: none;
             transition: opacity 0.4s ease;
         }
+        .scene-transition.active { opacity: 1; pointer-events: auto; }
 
-        .scene-transition.active {
-            opacity: 1;
-            pointer-events: auto;
+        .hidden { display: none !important; }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .game-container { padding: 16px; margin: 35px auto; width: 96%; }
+            .title h1 { font-size: 1.6em; }
+            .hud-top { flex-direction: column; gap: 6px; font-size: 0.9em; left: 50px; right: 50px; }
+            .hud-corner { width: 25px; height: 25px; }
+            .meter-bar { width: 80px; height: 10px; }
+            .controls-bar { bottom: 8px; right: 8px; gap: 4px; }
+            .ctrl-btn { padding: 5px 8px; font-size: 0.85em; }
+            .story-text { font-size: 0.95em; }
+            .choice { padding: 12px 16px; font-size: 0.95em; }
+            .choice .key-hint { display: none; }
+            .character-status { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
+            .character { padding: 8px 4px; }
+            .character-icon { font-size: 1.8em; }
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .game-container {
-                padding: 18px;
-                margin: 30px auto;
-            }
-
-            .title h1 {
-                font-size: 1.8em;
-            }
-
-            .hud-top {
-                flex-direction: column;
-                gap: 8px;
-                font-size: 1em;
-            }
-
-            .battery-bar, .sanity-bar {
-                width: 70px;
-            }
-
-            .audio-controls {
-                bottom: 10px;
-                right: 10px;
-            }
-
-            .audio-btn {
-                padding: 6px 10px;
-                font-size: 0.9em;
-            }
+        @media (max-width: 480px) {
+            .title h1 { font-size: 1.3em; letter-spacing: 2px; }
+            .hud-top { left: 35px; right: 35px; }
+            .meter-bar { width: 60px; }
+            .meter-label { min-width: 40px; font-size: 0.85em; }
         }
     </style>
 </head>
 <body>
     <!-- Loading Screen -->
     <div class="loading-screen" id="loadingScreen">
-        <div class="loading-text">INITIALIZING NIGHT VISION...</div>
-        <div class="loading-bar">
-            <div class="loading-fill"></div>
-        </div>
+        <div class="boot-sequence" id="bootSequence"></div>
+        <div class="loading-text" id="loadingText">INITIALIZING NIGHT VISION...</div>
+        <div class="loading-bar"><div class="loading-fill"></div></div>
         <div class="loading-info">
             HOLLOW CREEK PSYCHIATRIC FACILITY<br>
             INVESTIGATION: SUBJECT 47<br>
-            [CONFIDENTIAL]
+            [CLASSIFIED — LEVEL 5 CLEARANCE]
         </div>
     </div>
 
     <!-- Scene Transition -->
     <div class="scene-transition" id="sceneTransition"></div>
 
+    <!-- Particle Canvas -->
+    <canvas id="particleCanvas"></canvas>
+
     <!-- Camera HUD -->
     <div class="hud">
+        <div class="hud-corner tl"></div>
+        <div class="hud-corner tr"></div>
+        <div class="hud-corner bl"></div>
+        <div class="hud-corner br"></div>
         <div class="hud-top">
-            <div class="recording">
-                <div class="rec-dot"></div>
-                <span>REC</span>
-            </div>
-            <div class="battery">
-                <span>BATTERY:</span>
-                <div class="battery-bar">
-                    <div class="battery-fill" id="batteryFill" style="width: 100%"></div>
+            <div>
+                <div class="recording">
+                    <div class="rec-dot"></div>
+                    <span class="rec-label">REC</span>
                 </div>
-                <span id="batteryPercent">100%</span>
             </div>
-            <div class="sanity">
-                <span>SANITY:</span>
-                <div class="sanity-bar">
-                    <div class="sanity-fill" id="sanityFill" style="width: 100%"></div>
+            <div class="hud-meters">
+                <div class="meter">
+                    <span class="meter-label">BATT</span>
+                    <div class="meter-bar"><div class="meter-fill" id="batteryFill" style="width:100%"></div></div>
+                    <span class="meter-pct" id="batteryPercent">100%</span>
                 </div>
-                <span id="sanityPercent">100%</span>
+                <div class="meter">
+                    <span class="meter-label">SANITY</span>
+                    <div class="meter-bar"><div class="meter-fill" id="sanityFill" style="width:100%"></div></div>
+                    <span class="meter-pct" id="sanityPercent">100%</span>
+                </div>
             </div>
         </div>
+        <div class="fear-indicator" id="fearIndicator">
+            <span class="fear-text">❤ HEART RATE ELEVATED</span>
+        </div>
+        <div class="scene-counter" id="sceneCounter">SCENE 0/19</div>
         <div class="timestamp" id="timestamp">00:00:00</div>
     </div>
 
-    <!-- Audio Controls -->
-    <div class="audio-controls">
-        <button class="audio-btn" id="toggleMusic" title="Toggle Music">🎵 Music</button>
-        <button class="audio-btn" id="toggleSFX" title="Toggle Sound Effects">🔊 SFX</button>
+    <!-- Controls -->
+    <div class="controls-bar">
+        <button class="ctrl-btn" id="toggleMusic" title="Toggle Music">♪ ON</button>
+        <button class="ctrl-btn" id="toggleSFX" title="Toggle SFX">SFX ON</button>
+        <button class="ctrl-btn" id="openSettings" title="Settings">⚙</button>
+        <button class="ctrl-btn" id="saveBtn" title="Save Game">💾</button>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settingsPanel">
+        <h2>⚙ SETTINGS</h2>
+        <div class="setting-row"><label>Master Volume</label><input type="range" id="volMaster" min="0" max="100" value="60"></div>
+        <div class="setting-row"><label>Music Volume</label><input type="range" id="volMusic" min="0" max="100" value="40"></div>
+        <div class="setting-row"><label>SFX Volume</label><input type="range" id="volSFX" min="0" max="100" value="60"></div>
+        <div class="setting-row"><label>Text Speed</label><input type="range" id="textSpeed" min="5" max="60" value="20"></div>
+        <button class="setting-close" id="closeSettings">CLOSE</button>
     </div>
 
     <!-- Camera Effects -->
     <div class="camera-overlay"></div>
+    <div class="vhs-tracking"></div>
     <div class="grain"></div>
     <div class="static-effect" id="staticEffect"></div>
     <div class="blood-effect" id="bloodEffect"></div>
+    <div class="flash-effect" id="flashEffect"></div>
+
+    <!-- Achievement Popup -->
+    <div class="achievement-popup" id="achievementPopup">
+        <span class="ach-icon" id="achIcon"></span>
+        <div class="ach-title" id="achTitle"></div>
+        <div class="ach-desc" id="achDesc"></div>
+    </div>
 
     <!-- Game Container -->
     <div class="game-container">
         <div class="title">
             <h1>HOLLOW CREEK ASYLUM</h1>
-            <div class="subtitle">[NIGHT VISION ACTIVE]</div>
+            <div class="subtitle">[NIGHT VISION ACTIVE — V2]</div>
         </div>
 
         <div class="location" id="location">LOCATION: MAIN GATE</div>
 
         <div class="inventory hidden" id="inventory">
-            <div class="inventory-label">📦 INVENTORY:</div>
+            <div class="inventory-label">INVENTORY:</div>
         </div>
 
         <div class="character-status" id="characters">
@@ -824,533 +701,897 @@
         <div class="choices" id="choices"></div>
     </div>
 
-    <script>
-        // ============== AUDIO SYSTEM ==============
-        const AudioManager = {
-            bgMusic: null,
-            suddenMusic: null,
-            dialogueAudio: null,
-            musicEnabled: true,
-            sfxEnabled: true,
-            currentBgTrack: 'normal',
-            audioContext: null,
-            
-            init() {
-                // Create audio context for better control
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                
-                // Background music (normal ambience)
-                this.bgMusic = new Audio();
-                this.bgMusic.loop = true;
-                this.bgMusic.volume = 0.3;
-                this.bgMusic.src = 'audio/background/normal.mp3';
-                this.bgMusic.onerror = () => {
-                    console.log('Background music file not found, continuing without audio');
-                };
-                
-                // Sudden/intense music
-                this.suddenMusic = new Audio();
-                this.suddenMusic.loop = true;
-                this.suddenMusic.volume = 0;
-                this.suddenMusic.src = 'audio/background/sudden.mp3';
-                this.suddenMusic.onerror = () => {
-                    console.log('Sudden music file not found, continuing without audio');
-                };
-                
-                // Dialogue sounds
-                this.dialogueAudio = new Audio();
-                this.dialogueAudio.volume = 0.5;
-                this.dialogueAudio.src = 'audio/dialogue/speak.mp3';
-                this.dialogueAudio.onerror = () => {
-                    console.log('Dialogue audio file not found, continuing without audio');
-                };
-                
-                // Setup controls
-                document.getElementById('toggleMusic').addEventListener('click', () => this.toggleMusic());
-                document.getElementById('toggleSFX').addEventListener('click', () => this.toggleSFX());
-            },
-            
-            playBgMusic() {
-                if (!this.musicEnabled) return;
-                this.bgMusic.play().catch(() => {
-                    console.log('Could not play background music - file may be missing');
-                });
-            },
-            
-            stopBgMusic() {
-                this.bgMusic.pause();
-                this.suddenMusic.pause();
-            },
-            
-            // Crossfade to sudden/tense music
-            switchToSudden(duration = 1500) {
-                if (!this.musicEnabled || this.currentBgTrack === 'sudden') return;
-                this.currentBgTrack = 'sudden';
-                
-                this.suddenMusic.currentTime = this.bgMusic.currentTime % this.suddenMusic.duration || 0;
-                this.suddenMusic.play().catch(() => {
-                    console.log('Could not play sudden music');
-                });
-                
-                const fadeStep = 50;
-                const steps = duration / fadeStep;
-                const bgDecrement = this.bgMusic.volume / steps;
-                const suddenIncrement = 0.4 / steps;
-                
-                const fadeInterval = setInterval(() => {
-                    if (this.bgMusic.volume > 0.01) {
-                        this.bgMusic.volume = Math.max(0, this.bgMusic.volume - bgDecrement);
-                    }
-                    if (this.suddenMusic.volume < 0.4) {
-                        this.suddenMusic.volume = Math.min(0.4, this.suddenMusic.volume + suddenIncrement);
-                    }
-                    if (this.bgMusic.volume <= 0.01 && this.suddenMusic.volume >= 0.39) {
-                        clearInterval(fadeInterval);
-                        this.bgMusic.pause();
-                    }
-                }, fadeStep);
-            },
-            
-            // Crossfade back to normal music
-            switchToNormal(duration = 2000) {
-                if (!this.musicEnabled || this.currentBgTrack === 'normal') return;
-                this.currentBgTrack = 'normal';
-                
-                this.bgMusic.play().catch(() => {});
-                
-                const fadeStep = 50;
-                const steps = duration / fadeStep;
-                const bgIncrement = 0.3 / steps;
-                const suddenDecrement = this.suddenMusic.volume / steps;
-                
-                const fadeInterval = setInterval(() => {
-                    if (this.suddenMusic.volume > 0.01) {
-                        this.suddenMusic.volume = Math.max(0, this.suddenMusic.volume - suddenDecrement);
-                    }
-                    if (this.bgMusic.volume < 0.3) {
-                        this.bgMusic.volume = Math.min(0.3, this.bgMusic.volume + bgIncrement);
-                    }
-                    if (this.suddenMusic.volume <= 0.01 && this.bgMusic.volume >= 0.29) {
-                        clearInterval(fadeInterval);
-                        this.suddenMusic.pause();
-                    }
-                }, fadeStep);
-            },
-            
-            playDialogueSound() {
-                if (!this.sfxEnabled) return;
-                this.dialogueAudio.currentTime = 0;
-                this.dialogueAudio.play().catch(() => {
-                    // Silent fail if audio not available
-                });
-            },
-            
-            // Play a one-shot sound effect
-            playSFX(type) {
-                if (!this.sfxEnabled) return;
-                
-                const sfx = new Audio();
-                sfx.volume = 0.5;
-                
-                switch(type) {
-                    case 'footsteps':
-                        sfx.src = 'assets/audio/sfx/footsteps.mp3';
-                        break;
-                    case 'door':
-                        sfx.src = 'assets/audio/sfx/door.mp3';
-                        break;
-                    case 'scream':
-                        sfx.src = 'assets/audio/sfx/scream.mp3';
-                        break;
-                    case 'heartbeat':
-                        sfx.src = 'assets/audio/sfx/heartbeat.mp3';
-                        break;
-                }
-                
-                sfx.play().catch(() => {});
-            },
-            
-            toggleMusic() {
-                this.musicEnabled = !this.musicEnabled;
-                const btn = document.getElementById('toggleMusic');
-                
-                if (this.musicEnabled) {
-                    btn.classList.remove('muted');
-                    btn.textContent = '🎵 Music';
-                    this.playBgMusic();
-                } else {
-                    btn.classList.add('muted');
-                    btn.textContent = '🔇 Music';
-                    this.stopBgMusic();
-                }
-            },
-            
-            toggleSFX() {
-                this.sfxEnabled = !this.sfxEnabled;
-                const btn = document.getElementById('toggleSFX');
-                
-                if (this.sfxEnabled) {
-                    btn.classList.remove('muted');
-                    btn.textContent = '🔊 SFX';
-                } else {
-                    btn.classList.add('muted');
-                    btn.textContent = '🔇 SFX';
-                }
-            }
-        };
+<script>
+// ===================================================================
+//  HOLLOW CREEK ASYLUM V2 — ENHANCED ENGINE
+// ===================================================================
 
-        // ============== GAME STATE ==============
-        const gameState = {
-            scene: 0,
-            battery: 100,
-            sanity: 100,
-            inventory: [],
-            companions: {
-                grimlock: false,
-                whiskers: false,
-                mortis: false
-            },
-            batteryDrainRate: 0.25,
-            time: 0,
-            isTyping: false
-        };
+// ============== SYNTHESIZED AUDIO ENGINE ==============
+const SynthAudio = {
+    ctx: null,
+    masterGain: null,
+    musicGain: null,
+    sfxGain: null,
+    activeSources: [],
+    musicEnabled: true,
+    sfxEnabled: true,
+    currentDrone: null,
+    heartbeatInterval: null,
 
-        // Intervals
-        let batteryInterval;
-        let timeInterval;
+    init() {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.6;
+        this.masterGain.connect(this.ctx.destination);
 
-        // ============== TYPEWRITER EFFECT ==============
-        async function typeWriter(element, text, speed = 25) {
-            gameState.isTyping = true;
-            element.innerHTML = '';
-            
-            // Parse HTML to preserve tags
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = text;
-            
-            const processNode = async (node, targetElement) => {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    for (let char of node.textContent) {
-                        if (!gameState.isTyping) {
-                            targetElement.textContent += node.textContent.slice(node.textContent.indexOf(char));
-                            return;
-                        }
-                        targetElement.textContent += char;
-                        
-                        // Play dialogue sound periodically
-                        if (Math.random() < 0.1) {
-                            AudioManager.playDialogueSound();
-                        }
-                        
-                        await new Promise(r => setTimeout(r, speed));
-                    }
-                } else if (node.nodeType === Node.ELEMENT_NODE) {
-                    const newElement = document.createElement(node.tagName);
-                    for (let attr of node.attributes) {
-                        newElement.setAttribute(attr.name, attr.value);
-                    }
-                    targetElement.appendChild(newElement);
-                    
-                    for (let child of node.childNodes) {
-                        await processNode(child, newElement);
-                    }
-                }
-            };
-            
-            for (let child of tempDiv.childNodes) {
-                await processNode(child, element);
-            }
-            
-            gameState.isTyping = false;
-        }
+        this.musicGain = this.ctx.createGain();
+        this.musicGain.gain.value = 0.4;
+        this.musicGain.connect(this.masterGain);
 
-        function skipTypewriter() {
-            gameState.isTyping = false;
-        }
+        this.sfxGain = this.ctx.createGain();
+        this.sfxGain.gain.value = 0.6;
+        this.sfxGain.connect(this.masterGain);
 
-        // ============== UI UPDATES ==============
-        function updateBattery() {
-            const fill = document.getElementById('batteryFill');
-            const percent = document.getElementById('batteryPercent');
-            fill.style.width = gameState.battery + '%';
-            percent.textContent = Math.floor(gameState.battery) + '%';
-            
-            fill.className = 'battery-fill';
-            if (gameState.battery < 30) fill.classList.add('low');
-            if (gameState.battery < 10) fill.classList.add('critical');
-        }
+        // Resume on user interaction
+        document.addEventListener('click', () => {
+            if (this.ctx.state === 'suspended') this.ctx.resume();
+        }, { once: true });
+    },
 
-        function updateSanity() {
-            const fill = document.getElementById('sanityFill');
-            const percent = document.getElementById('sanityPercent');
-            fill.style.width = gameState.sanity + '%';
-            percent.textContent = Math.floor(gameState.sanity) + '%';
-            
-            fill.className = 'sanity-fill';
-            document.body.classList.remove('low-sanity', 'critical-sanity');
-            
-            if (gameState.sanity < 50) {
-                fill.classList.add('low');
-                document.body.classList.add('low-sanity');
-            }
-            if (gameState.sanity < 25) {
-                fill.classList.add('critical');
-                document.body.classList.remove('low-sanity');
-                document.body.classList.add('critical-sanity');
-            }
-        }
+    // Create dark ambient drone
+    startDrone(type = 'normal') {
+        this.stopDrone();
+        if (!this.musicEnabled) return;
+        const now = this.ctx.currentTime;
 
-        function changeSanity(amount) {
-            gameState.sanity = Math.max(0, Math.min(100, gameState.sanity + amount));
-            updateSanity();
+        // Base frequencies for eerie drone
+        const freqs = type === 'danger' ? [55, 58.27, 73.42] : [55, 65.41, 82.41];
+        const osc = [];
 
-            if (amount < 0) {
-                showBloodEffect();
-                if (amount < -15) {
-                    AudioManager.switchToSudden();
-                }
-            } else if (amount > 10) {
-                AudioManager.switchToNormal();
-            }
-        }
+        freqs.forEach((f, i) => {
+            const o = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            o.type = i === 0 ? 'sawtooth' : 'sine';
+            o.frequency.value = f;
+            g.gain.value = 0;
+            g.gain.linearRampToValueAtTime(type === 'danger' ? 0.08 : 0.05, now + 2);
+            o.connect(g);
+            g.connect(this.musicGain);
+            o.start();
+            osc.push({ osc: o, gain: g });
 
-        function changeBattery(amount) {
-            gameState.battery = Math.max(0, Math.min(100, gameState.battery + amount));
-            updateBattery();
-        }
+            // Slow LFO modulation
+            const lfo = this.ctx.createOscillator();
+            const lfoGain = this.ctx.createGain();
+            lfo.frequency.value = 0.1 + i * 0.05;
+            lfoGain.gain.value = type === 'danger' ? 3 : 1.5;
+            lfo.connect(lfoGain);
+            lfoGain.connect(o.frequency);
+            lfo.start();
+            osc.push({ osc: lfo, gain: lfoGain });
+        });
 
-        function addItem(item) {
-            if (!gameState.inventory.includes(item)) {
-                gameState.inventory.push(item);
-                updateInventory();
-            }
-        }
+        // Add filtered noise for atmosphere
+        const bufferSize = this.ctx.sampleRate * 2;
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
 
-        function updateInventory() {
-            const inv = document.getElementById('inventory');
-            if (gameState.inventory.length > 0) {
-                inv.classList.remove('hidden');
-                inv.innerHTML = '<div class="inventory-label">📦 INVENTORY:</div>';
-                gameState.inventory.forEach(item => {
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'item';
-                    itemDiv.textContent = item;
-                    inv.appendChild(itemDiv);
-                });
-            } else {
-                inv.classList.add('hidden');
-            }
-        }
+        const noiseSrc = this.ctx.createBufferSource();
+        noiseSrc.buffer = noiseBuffer;
+        noiseSrc.loop = true;
+        const noiseFilter = this.ctx.createBiquadFilter();
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.value = type === 'danger' ? 400 : 200;
+        noiseFilter.Q.value = 1;
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.value = type === 'danger' ? 0.06 : 0.03;
+        noiseSrc.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.musicGain);
+        noiseSrc.start();
 
-        function updateTimestamp() {
-            const hours = Math.floor(gameState.time / 3600);
-            const minutes = Math.floor((gameState.time % 3600) / 60);
-            const seconds = gameState.time % 60;
-            document.getElementById('timestamp').textContent = 
-                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        }
+        this.currentDrone = { oscillators: osc, noise: noiseSrc, noiseGain, noiseFilter };
+    },
 
-        function updateCharacters() {
-            const container = document.getElementById('characters');
-            container.innerHTML = `
-                <div class="character" id="char-you">
-                    <div class="character-icon">📹</div>
-                    <div class="character-name">YOU</div>
-                    <div class="character-state">Investigator</div>
-                </div>
-            `;
+    stopDrone() {
+        if (!this.currentDrone) return;
+        const now = this.ctx.currentTime;
+        this.currentDrone.oscillators.forEach(o => {
+            try { o.gain.gain.linearRampToValueAtTime(0, now + 1); setTimeout(() => o.osc.stop(), 1200); } catch(e) {}
+        });
+        try { this.currentDrone.noiseGain.gain.linearRampToValueAtTime(0, now + 1); setTimeout(() => this.currentDrone.noise.stop(), 1200); } catch(e) {}
+        this.currentDrone = null;
+    },
 
-            if (gameState.companions.grimlock) {
-                const isDead = gameState.scene >= 6;
-                container.innerHTML += `
-                    <div class="character ${isDead ? 'dead' : ''}" id="char-grimlock">
-                        <div class="character-icon">🧌</div>
-                        <div class="character-name">GRIMLOCK</div>
-                        <div class="character-state">The Troll</div>
-                    </div>
-                `;
-            }
+    switchToSudden() { this.startDrone('danger'); },
+    switchToNormal() { this.startDrone('normal'); },
 
-            if (gameState.companions.whiskers) {
-                container.innerHTML += `
-                    <div class="character" id="char-whiskers">
-                        <div class="character-icon">🦦</div>
-                        <div class="character-name">WHISKERS</div>
-                        <div class="character-state">${gameState.scene >= 9 ? 'Brave Survivor' : 'Frightened Patient'}</div>
-                    </div>
-                `;
-            }
-
-            if (gameState.companions.mortis) {
-                container.innerHTML += `
-                    <div class="character" id="char-mortis">
-                        <div class="character-icon">💀</div>
-                        <div class="character-name">MORTIS</div>
-                        <div class="character-state">Dr. Mortimer's Assistant</div>
-                    </div>
-                `;
-            }
-        }
-
-        // ============== EFFECTS ==============
-        function showStatic() {
-            const el = document.getElementById('staticEffect');
-            el.classList.add('active');
-            setTimeout(() => el.classList.remove('active'), 150);
-        }
-
-        function showBloodEffect() {
-            const el = document.getElementById('bloodEffect');
-            el.classList.add('active');
-            setTimeout(() => el.classList.remove('active'), 600);
-        }
-
-        async function transitionScene() {
-            const el = document.getElementById('sceneTransition');
-            el.classList.add('active');
-            await new Promise(r => setTimeout(r, 400));
-            el.classList.remove('active');
-        }
-
-        // ============== SCENE MANAGEMENT ==============
-        async function showScene(scene) {
-            await transitionScene();
-            
-            const locationEl = document.getElementById('location');
-            locationEl.textContent = scene.location || 'UNKNOWN LOCATION';
-            locationEl.classList.toggle('danger', scene.danger || false);
-            
-            // Switch music based on scene danger level
-            if (scene.danger) {
-                AudioManager.switchToSudden();
-            } else if (scene.calm) {
-                AudioManager.switchToNormal();
-            }
-            
-            const storyEl = document.getElementById('storyText');
-            await typeWriter(storyEl, scene.text, 20);
-            
-            const choicesDiv = document.getElementById('choices');
-            choicesDiv.innerHTML = '';
-            
-            scene.choices.forEach((choice, index) => {
-                const btn = document.createElement('div');
-                btn.className = 'choice';
-                if (choice.class) btn.classList.add(choice.class);
-                if (choice.disabled) btn.classList.add('disabled');
-                
-                let displayText = choice.text;
-                if (choice.batteryReq && gameState.battery < choice.batteryReq) {
-                    displayText += ` [BATTERY TOO LOW: ${choice.batteryReq}% REQUIRED]`;
-                    btn.classList.add('disabled');
-                }
-                
-                btn.textContent = displayText;
-                btn.style.animationDelay = `${0.1 + index * 0.1}s`;
-                
-                btn.onclick = () => {
-                    if (choice.disabled || (choice.batteryReq && gameState.battery < choice.batteryReq)) return;
-                    
-                    if (choice.action) {
-                        showStatic();
-                        choice.action();
-                    }
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                };
-                choicesDiv.appendChild(btn);
+    // Heartbeat sound
+    playHeartbeat(bpm = 80) {
+        if (!this.sfxEnabled) return;
+        this.stopHeartbeat();
+        const beat = () => {
+            if (!this.sfxEnabled) return;
+            const now = this.ctx.currentTime;
+            // Double thump
+            [0, 0.12].forEach(offset => {
+                const o = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                o.frequency.value = offset === 0 ? 60 : 50;
+                o.type = 'sine';
+                g.gain.setValueAtTime(0.3, now + offset);
+                g.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.15);
+                o.connect(g);
+                g.connect(this.sfxGain);
+                o.start(now + offset);
+                o.stop(now + offset + 0.2);
             });
+        };
+        beat();
+        this.heartbeatInterval = setInterval(beat, 60000 / bpm);
+    },
 
-            updateCharacters();
-        }
+    stopHeartbeat() {
+        if (this.heartbeatInterval) { clearInterval(this.heartbeatInterval); this.heartbeatInterval = null; }
+    },
 
-        // ============== BATTERY & TIME ==============
-        function startBatteryDrain() {
-            if (batteryInterval) clearInterval(batteryInterval);
-            batteryInterval = setInterval(() => {
-                if (gameState.battery > 0) {
-                    gameState.battery -= gameState.batteryDrainRate;
-                    if (gameState.battery < 0) gameState.battery = 0;
-                    updateBattery();
-                    
-                    // Add emergency battery boost if player gets very low
-                    if (gameState.battery <= 10 && Math.random() < 0.4) {
-                        gameState.battery += 8;
-                        if (gameState.battery > 100) gameState.battery = 100;
-                        updateBattery();
-                        typeText("Your night vision camera flickers and briefly recovers some power...", 800);
-                    }
-                    
-                    if (gameState.battery <= 0) {
-                        showScene({
-                            location: "SYSTEM ERROR",
-                            danger: true,
-                            text: `Your night vision camera has died. In the pitch black darkness of Hollow Creek Asylum, you are defenseless. You hear something approaching... something that's been hunting you.
+    // One-shot SFX
+    playSFX(type) {
+        if (!this.sfxEnabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
 
-<div class="warning">BATTERY DEPLETED</div>
-<div class="document">RECORDING TERMINATED</div>`,
-                            choices: [
-                                { text: "RESTART INVESTIGATION", action: () => restartGame(), class: "restart" }
-                            ]
-                        });
-                        clearInterval(batteryInterval);
-                        clearInterval(timeInterval);
-                    }
+        switch(type) {
+            case 'footstep': {
+                const o = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                const f = this.ctx.createBiquadFilter();
+                o.type = 'sawtooth';
+                o.frequency.value = 80 + Math.random() * 40;
+                f.type = 'lowpass'; f.frequency.value = 300;
+                g.gain.setValueAtTime(0.15, now);
+                g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                o.connect(f); f.connect(g); g.connect(this.sfxGain);
+                o.start(); o.stop(now + 0.1);
+                break;
+            }
+            case 'door': {
+                const o = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                o.type = 'sawtooth';
+                o.frequency.setValueAtTime(200, now);
+                o.frequency.exponentialRampToValueAtTime(50, now + 0.8);
+                g.gain.setValueAtTime(0.12, now);
+                g.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+                o.connect(g); g.connect(this.sfxGain);
+                o.start(); o.stop(now + 1);
+                break;
+            }
+            case 'scream': {
+                for (let i = 0; i < 3; i++) {
+                    const o = this.ctx.createOscillator();
+                    const g = this.ctx.createGain();
+                    o.type = i === 0 ? 'sawtooth' : 'square';
+                    o.frequency.setValueAtTime(600 + i * 200, now);
+                    o.frequency.exponentialRampToValueAtTime(200 + i * 100, now + 0.5);
+                    g.gain.setValueAtTime(0.12, now);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                    o.connect(g); g.connect(this.sfxGain);
+                    o.start(now + i * 0.03); o.stop(now + 0.7);
                 }
-            }, 6000);  // Slower battery drain - every 6 seconds instead of 4
-        }
+                break;
+            }
+            case 'static': {
+                const bufLen = this.ctx.sampleRate * 0.3;
+                const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+                const d = buf.getChannelData(0);
+                for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * 0.5;
+                const s = this.ctx.createBufferSource();
+                const g = this.ctx.createGain();
+                s.buffer = buf;
+                g.gain.setValueAtTime(0.2, now);
+                g.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                s.connect(g); g.connect(this.sfxGain);
+                s.start(); s.stop(now + 0.35);
+                break;
+            }
+            case 'jumpscare': {
+                // Loud burst of noise + high pitch
+                const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.15, this.ctx.sampleRate);
+                const d = buf.getChannelData(0);
+                for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+                const s = this.ctx.createBufferSource();
+                const g = this.ctx.createGain();
+                s.buffer = buf;
+                g.gain.setValueAtTime(0.45, now);
+                g.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                s.connect(g); g.connect(this.sfxGain);
+                s.start();
 
-        function startTime() {
-            if (timeInterval) clearInterval(timeInterval);
-            timeInterval = setInterval(() => {
-                gameState.time++;
-                updateTimestamp();
-            }, 1000);
+                const o = this.ctx.createOscillator();
+                const og = this.ctx.createGain();
+                o.type = 'square';
+                o.frequency.value = 1200;
+                og.gain.setValueAtTime(0.25, now);
+                og.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                o.connect(og); og.connect(this.sfxGain);
+                o.start(); o.stop(now + 0.55);
+                break;
+            }
+            case 'whisper': {
+                const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.8, this.ctx.sampleRate);
+                const d = buf.getChannelData(0);
+                for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+                const s = this.ctx.createBufferSource();
+                const f = this.ctx.createBiquadFilter();
+                const g = this.ctx.createGain();
+                s.buffer = buf;
+                f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = 3;
+                g.gain.setValueAtTime(0.08, now);
+                g.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+                s.connect(f); f.connect(g); g.connect(this.sfxGain);
+                s.start();
+                break;
+            }
+            case 'click': {
+                const o = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                o.frequency.value = 1000;
+                g.gain.setValueAtTime(0.1, now);
+                g.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+                o.connect(g); g.connect(this.sfxGain);
+                o.start(); o.stop(now + 0.04);
+                break;
+            }
+            case 'success': {
+                [523, 659, 784].forEach((f, i) => {
+                    const o = this.ctx.createOscillator();
+                    const g = this.ctx.createGain();
+                    o.frequency.value = f;
+                    o.type = 'sine';
+                    g.gain.setValueAtTime(0.15, now + i * 0.15);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.3);
+                    o.connect(g); g.connect(this.sfxGain);
+                    o.start(now + i * 0.15); o.stop(now + i * 0.15 + 0.4);
+                });
+                break;
+            }
+            case 'typechar': {
+                const o = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                o.frequency.value = 800 + Math.random() * 400;
+                o.type = 'square';
+                g.gain.setValueAtTime(0.02, now);
+                g.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+                o.connect(g); g.connect(this.sfxGain);
+                o.start(); o.stop(now + 0.025);
+                break;
+            }
         }
+    },
 
-        // ============== SCENES ==============
-        const scenes = [
-            // Scene 0: Opening
-            {
-                location: "LOCATION: ASYLUM MAIN GATE",
-                calm: true,
-                text: `The camera flickers on. Green phosphorescence floods your vision as night mode activates.
+    setMasterVolume(v) { if (this.masterGain) this.masterGain.gain.value = v; },
+    setMusicVolume(v) { if (this.musicGain) this.musicGain.gain.value = v; },
+    setSFXVolume(v) { if (this.sfxGain) this.sfxGain.gain.value = v; },
+
+    toggleMusic() {
+        this.musicEnabled = !this.musicEnabled;
+        const btn = document.getElementById('toggleMusic');
+        if (this.musicEnabled) { btn.textContent = '♪ ON'; btn.classList.remove('muted'); this.startDrone('normal'); }
+        else { btn.textContent = '♪ OFF'; btn.classList.add('muted'); this.stopDrone(); }
+    },
+    toggleSFX() {
+        this.sfxEnabled = !this.sfxEnabled;
+        const btn = document.getElementById('toggleSFX');
+        if (this.sfxEnabled) { btn.textContent = 'SFX ON'; btn.classList.remove('muted'); }
+        else { btn.textContent = 'SFX OFF'; btn.classList.add('muted'); this.stopHeartbeat(); }
+    }
+};
+
+// ============== PARTICLE SYSTEM ==============
+const Particles = {
+    canvas: null, ctx: null, particles: [], animId: null,
+    init() {
+        this.canvas = document.getElementById('particleCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+        for (let i = 0; i < 60; i++) this.spawn();
+        this.animate();
+    },
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+    },
+    spawn(type) {
+        const t = type || (Math.random() < 0.85 ? 'dust' : 'ember');
+        this.particles.push({
+            x: Math.random() * this.canvas.width,
+            y: Math.random() * this.canvas.height,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: t === 'dust' ? -0.1 - Math.random() * 0.3 : -0.5 - Math.random() * 0.8,
+            size: t === 'dust' ? 1 + Math.random() * 2 : 1 + Math.random(),
+            opacity: Math.random() * 0.4 + 0.1,
+            type: t,
+            life: 1
+        });
+    },
+    setMode(mode) {
+        // Add blood particles for horror moments
+        if (mode === 'blood') {
+            for (let i = 0; i < 20; i++) {
+                this.particles.push({
+                    x: Math.random() * this.canvas.width,
+                    y: -10,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: 1 + Math.random() * 3,
+                    size: 2 + Math.random() * 3,
+                    opacity: 0.6 + Math.random() * 0.4,
+                    type: 'blood',
+                    life: 1
+                });
+            }
+        }
+    },
+    animate() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.particles.forEach((p, i) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.type === 'blood') p.life -= 0.008;
+            else p.life -= 0.001;
+
+            if (p.life <= 0 || p.y < -10 || p.y > this.canvas.height + 10) {
+                if (p.type !== 'blood') {
+                    p.x = Math.random() * this.canvas.width;
+                    p.y = this.canvas.height + 5;
+                    p.life = 1;
+                } else {
+                    this.particles.splice(i, 1); return;
+                }
+            }
+
+            this.ctx.beginPath();
+            const color = p.type === 'blood' ? `rgba(180,0,0,${p.opacity * p.life})` :
+                          p.type === 'ember' ? `rgba(0,200,0,${p.opacity * p.life})` :
+                          `rgba(0,150,0,${p.opacity * p.life * 0.5})`;
+            this.ctx.fillStyle = color;
+            this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            if (p.type === 'ember') {
+                this.ctx.shadowBlur = 6;
+                this.ctx.shadowColor = 'rgba(0,255,0,0.3)';
+            }
+        });
+        this.ctx.shadowBlur = 0;
+        this.animId = requestAnimationFrame(() => this.animate());
+    }
+};
+
+// ============== ACHIEVEMENT SYSTEM ==============
+const Achievements = {
+    unlocked: JSON.parse(localStorage.getItem('hca_achievements') || '[]'),
+    definitions: {
+        'first_steps': { icon: '👣', title: 'FIRST STEPS', desc: 'Enter Hollow Creek Asylum' },
+        'alliance': { icon: '🤝', title: 'UNLIKELY ALLIES', desc: 'Form an alliance with Grimlock & Whiskers' },
+        'lone_wolf': { icon: '🐺', title: 'LONE WOLF', desc: 'Choose to go alone' },
+        'detective': { icon: '🔍', title: 'DETECTIVE', desc: 'Find all clues in Mortimer\'s office' },
+        'puzzle_master': { icon: '🧩', title: 'PUZZLE MASTER', desc: 'Solve the keypad puzzle' },
+        'survivor': { icon: '🏆', title: 'SURVIVOR', desc: 'Complete the investigation' },
+        'hero': { icon: '💎', title: 'TRUE HERO', desc: 'Sacrifice yourself for your sister' },
+        'speed_run': { icon: '⚡', title: 'SPEED DEMON', desc: 'Complete the game in under 5 minutes' },
+        'full_battery': { icon: '🔋', title: 'POWER SAVER', desc: 'End with 50%+ battery' },
+        'iron_mind': { icon: '🧠', title: 'IRON MIND', desc: 'End with 60%+ sanity' }
+    },
+
+    unlock(id) {
+        if (this.unlocked.includes(id)) return;
+        this.unlocked.push(id);
+        localStorage.setItem('hca_achievements', JSON.stringify(this.unlocked));
+        const def = this.definitions[id];
+        if (!def) return;
+
+        SynthAudio.playSFX('success');
+        const popup = document.getElementById('achievementPopup');
+        document.getElementById('achIcon').textContent = def.icon;
+        document.getElementById('achTitle').textContent = def.title;
+        document.getElementById('achDesc').textContent = def.desc;
+        popup.classList.add('show');
+        setTimeout(() => popup.classList.remove('show'), 3500);
+    }
+};
+
+// ============== SAVE SYSTEM ==============
+const SaveSystem = {
+    save() {
+        const data = {
+            scene: gameState.scene,
+            battery: gameState.battery,
+            sanity: gameState.sanity,
+            inventory: gameState.inventory,
+            companions: gameState.companions,
+            time: gameState.time,
+            choices: gameState.choicesMade,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('hca_save', JSON.stringify(data));
+        SynthAudio.playSFX('success');
+        showNotification('GAME SAVED');
+    },
+
+    load() {
+        const raw = localStorage.getItem('hca_save');
+        if (!raw) return false;
+        try {
+            const data = JSON.parse(raw);
+            gameState.scene = data.scene;
+            gameState.battery = data.battery;
+            gameState.sanity = data.sanity;
+            gameState.inventory = data.inventory || [];
+            gameState.companions = data.companions;
+            gameState.time = data.time || 0;
+            gameState.choicesMade = data.choices || [];
+            return true;
+        } catch(e) { return false; }
+    },
+
+    hasSave() {
+        return !!localStorage.getItem('hca_save');
+    },
+
+    clear() {
+        localStorage.removeItem('hca_save');
+    }
+};
+
+function showNotification(text) {
+    const popup = document.getElementById('achievementPopup');
+    document.getElementById('achIcon').textContent = '💾';
+    document.getElementById('achTitle').textContent = text;
+    document.getElementById('achDesc').textContent = '';
+    popup.classList.add('show');
+    setTimeout(() => popup.classList.remove('show'), 2000);
+}
+
+// ============== GAME STATE ==============
+const gameState = {
+    scene: 0,
+    battery: 100,
+    sanity: 100,
+    inventory: [],
+    companions: { grimlock: false, whiskers: false, mortis: false },
+    batteryDrainRate: 0.2,
+    time: 0,
+    isTyping: false,
+    textSpeed: 20,
+    choicesMade: [],
+    puzzleSolved: false,
+    scareCount: 0
+};
+
+let batteryInterval, timeInterval, scareInterval;
+
+// ============== EFFECTS ==============
+function screenShake() {
+    document.body.classList.add('screen-shake');
+    setTimeout(() => document.body.classList.remove('screen-shake'), 400);
+}
+
+function showStatic(duration = 200) {
+    const el = document.getElementById('staticEffect');
+    el.classList.add('active');
+    SynthAudio.playSFX('static');
+    setTimeout(() => el.classList.remove('active'), duration);
+}
+
+function showBloodEffect() {
+    const el = document.getElementById('bloodEffect');
+    el.classList.add('active');
+    Particles.setMode('blood');
+    setTimeout(() => el.classList.remove('active'), 600);
+}
+
+function showFlash() {
+    const el = document.getElementById('flashEffect');
+    el.classList.add('active');
+    setTimeout(() => el.classList.remove('active'), 300);
+}
+
+function triggerChromaticAberration(duration = 2000) {
+    document.body.classList.add('chromatic-active');
+    setTimeout(() => document.body.classList.remove('chromatic-active'), duration);
+}
+
+function showFearIndicator(show = true) {
+    document.getElementById('fearIndicator').classList.toggle('visible', show);
+}
+
+async function transitionScene() {
+    const el = document.getElementById('sceneTransition');
+    el.classList.add('active');
+    await new Promise(r => setTimeout(r, 450));
+    el.classList.remove('active');
+}
+
+// Random scare events
+function startScareEvents() {
+    if (scareInterval) clearInterval(scareInterval);
+    scareInterval = setInterval(() => {
+        if (gameState.scene < 1 || gameState.scene > 11) return;
+        if (Math.random() < 0.15) {
+            const scares = [
+                () => { showStatic(300); },
+                () => { SynthAudio.playSFX('whisper'); triggerChromaticAberration(1500); },
+                () => { screenShake(); SynthAudio.playSFX('footstep'); },
+                () => { showFearIndicator(true); SynthAudio.playHeartbeat(120); setTimeout(() => { showFearIndicator(false); SynthAudio.stopHeartbeat(); }, 4000); }
+            ];
+            scares[Math.floor(Math.random() * scares.length)]();
+            gameState.scareCount++;
+        }
+    }, 15000);
+}
+
+// ============== TYPEWRITER EFFECT ==============
+async function typeWriter(element, text, speed) {
+    speed = speed || gameState.textSpeed;
+    gameState.isTyping = true;
+    element.innerHTML = '';
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = text;
+    let charCount = 0;
+
+    const processNode = async (node, targetElement) => {
+        if (!gameState.isTyping) {
+            targetElement.innerHTML += node.nodeType === Node.TEXT_NODE ? node.textContent : node.outerHTML;
+            return;
+        }
+        if (node.nodeType === Node.TEXT_NODE) {
+            for (let i = 0; i < node.textContent.length; i++) {
+                if (!gameState.isTyping) {
+                    targetElement.textContent += node.textContent.slice(i);
+                    return;
+                }
+                targetElement.textContent += node.textContent[i];
+                charCount++;
+                if (charCount % 3 === 0) SynthAudio.playSFX('typechar');
+                await new Promise(r => setTimeout(r, speed));
+            }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const newEl = document.createElement(node.tagName);
+            for (let attr of node.attributes) newEl.setAttribute(attr.name, attr.value);
+            targetElement.appendChild(newEl);
+            for (let child of node.childNodes) await processNode(child, newEl);
+        }
+    };
+
+    for (let child of tempDiv.childNodes) {
+        if (!gameState.isTyping) {
+            element.innerHTML = text;
+            break;
+        }
+        await processNode(child, element);
+    }
+    gameState.isTyping = false;
+}
+
+function skipTypewriter() { gameState.isTyping = false; }
+
+// ============== UI UPDATES ==============
+function updateBattery() {
+    const fill = document.getElementById('batteryFill');
+    const pct = document.getElementById('batteryPercent');
+    fill.style.width = gameState.battery + '%';
+    pct.textContent = Math.floor(gameState.battery) + '%';
+    fill.className = 'meter-fill';
+    if (gameState.battery < 30) fill.classList.add('low');
+    if (gameState.battery < 10) fill.classList.add('critical');
+}
+
+function updateSanity() {
+    const fill = document.getElementById('sanityFill');
+    const pct = document.getElementById('sanityPercent');
+    fill.style.width = gameState.sanity + '%';
+    pct.textContent = Math.floor(gameState.sanity) + '%';
+    fill.className = 'meter-fill';
+    document.body.classList.remove('low-sanity', 'critical-sanity');
+    if (gameState.sanity < 50) { fill.classList.add('low'); document.body.classList.add('low-sanity'); }
+    if (gameState.sanity < 25) { fill.classList.add('critical'); document.body.classList.remove('low-sanity'); document.body.classList.add('critical-sanity'); }
+}
+
+function changeSanity(amount) {
+    gameState.sanity = Math.max(0, Math.min(100, gameState.sanity + amount));
+    updateSanity();
+    if (amount < 0) {
+        showBloodEffect();
+        if (amount < -15) { screenShake(); SynthAudio.switchToSudden(); triggerChromaticAberration(3000); }
+        if (amount < -25) { SynthAudio.playSFX('jumpscare'); showFearIndicator(true); SynthAudio.playHeartbeat(130); setTimeout(() => { showFearIndicator(false); SynthAudio.stopHeartbeat(); }, 5000); }
+    } else if (amount > 10) { SynthAudio.switchToNormal(); }
+}
+
+function changeBattery(amount) {
+    gameState.battery = Math.max(0, Math.min(100, gameState.battery + amount));
+    updateBattery();
+}
+
+function addItem(item) {
+    if (!gameState.inventory.includes(item)) { gameState.inventory.push(item); updateInventory(); SynthAudio.playSFX('click'); }
+}
+
+function updateInventory() {
+    const inv = document.getElementById('inventory');
+    if (gameState.inventory.length > 0) {
+        inv.classList.remove('hidden');
+        inv.innerHTML = '<div class="inventory-label">INVENTORY:</div>';
+        gameState.inventory.forEach(item => {
+            const d = document.createElement('div');
+            d.className = 'item';
+            d.textContent = item;
+            inv.appendChild(d);
+        });
+    } else { inv.classList.add('hidden'); }
+}
+
+function updateTimestamp() {
+    const h = Math.floor(gameState.time / 3600);
+    const m = Math.floor((gameState.time % 3600) / 60);
+    const s = gameState.time % 60;
+    document.getElementById('timestamp').textContent =
+        `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function updateCharacters() {
+    const c = document.getElementById('characters');
+    let html = `<div class="character"><div class="character-icon">📹</div><div class="character-name">YOU</div><div class="character-state">Investigator</div></div>`;
+
+    if (gameState.companions.grimlock) {
+        const title = gameState.scene >= 9 ? 'Battle-Scarred Protector' : gameState.scene >= 7 ? 'Unstoppable Warrior' : 'The Troll';
+        html += `<div class="character"><div class="character-icon">🧌</div><div class="character-name">GRIMLOCK</div><div class="character-state">${title}</div></div>`;
+    }
+    if (gameState.companions.whiskers) {
+        html += `<div class="character"><div class="character-icon">🦦</div><div class="character-name">WHISKERS</div><div class="character-state">${gameState.scene >= 9 ? 'Brave Survivor' : 'Frightened Patient'}</div></div>`;
+    }
+    if (gameState.companions.mortis) {
+        const gone = gameState.scene >= 11;
+        html += `<div class="character ${gone ? 'dead' : ''}"><div class="character-icon">💀</div><div class="character-name">MORTIS</div><div class="character-state">${gone ? 'At Peace' : 'The Assistant'}</div></div>`;
+    }
+    c.innerHTML = html;
+}
+
+function updateSceneCounter() {
+    document.getElementById('sceneCounter').textContent = `SCENE ${gameState.scene}/19`;
+}
+
+// ============== PUZZLE SYSTEM ==============
+function showKeypadPuzzle(code, onSuccess, onFail) {
+    const choicesDiv = document.getElementById('choices');
+    choicesDiv.innerHTML = '';
+    const panel = document.createElement('div');
+    panel.className = 'puzzle-panel';
+    panel.innerHTML = `
+        <h3>🔒 KEYPAD LOCK — ENTER CODE</h3>
+        <div class="keypad-display" id="keypadDisplay">____</div>
+        <div class="keypad">
+            ${[1,2,3,4,5,6,7,8,9,'C',0,'✓'].map(k => `<button class="keypad-btn" data-key="${k}">${k}</button>`).join('')}
+        </div>
+        <div class="puzzle-feedback" id="puzzleFeedback"></div>
+        <div style="margin-top:10px;color:var(--nv-dark);font-size:0.9em;">Hint: Check documents for the code</div>
+    `;
+    choicesDiv.appendChild(panel);
+
+    let input = '';
+    panel.querySelectorAll('.keypad-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            SynthAudio.playSFX('click');
+            const key = btn.dataset.key;
+            if (key === 'C') { input = ''; }
+            else if (key === '✓') {
+                if (input === code) {
+                    document.getElementById('puzzleFeedback').textContent = 'ACCESS GRANTED';
+                    document.getElementById('puzzleFeedback').className = 'puzzle-feedback success';
+                    SynthAudio.playSFX('success');
+                    gameState.puzzleSolved = true;
+                    Achievements.unlock('puzzle_master');
+                    setTimeout(onSuccess, 1000);
+                } else {
+                    document.getElementById('puzzleFeedback').textContent = 'ACCESS DENIED';
+                    document.getElementById('puzzleFeedback').className = 'puzzle-feedback error';
+                    SynthAudio.playSFX('static');
+                    screenShake();
+                    input = '';
+                    if (onFail) onFail();
+                }
+            } else if (input.length < 4) {
+                input += key;
+            }
+            const display = input.padEnd(4, '_').split('').join(' ');
+            document.getElementById('keypadDisplay').textContent = display;
+        });
+    });
+}
+
+// ============== TIMED CHOICES ==============
+function showTimedChoices(scene, timeout = 8000) {
+    const choicesDiv = document.getElementById('choices');
+    scene.choices.forEach((choice, index) => {
+        const btn = choicesDiv.children[index];
+        if (!btn) return;
+        if (choice.timed) {
+            const timer = document.createElement('div');
+            timer.className = 'choice-timer';
+            timer.style.width = '100%';
+            btn.style.position = 'relative';
+            btn.appendChild(timer);
+            setTimeout(() => { timer.style.width = '0%'; timer.style.transitionDuration = timeout + 'ms'; }, 50);
+
+            setTimeout(() => {
+                if (gameState.scene === scene._sceneId) {
+                    // Auto-select worst option or trigger fail
+                    if (choice.timedFail) choice.timedFail();
+                    else if (choice.action) choice.action();
+                }
+            }, timeout);
+        }
+    });
+}
+
+// ============== SCENE MANAGEMENT ==============
+async function showScene(scene) {
+    await transitionScene();
+    showStatic(150);
+
+    const locationEl = document.getElementById('location');
+    locationEl.textContent = scene.location || 'UNKNOWN LOCATION';
+    locationEl.classList.toggle('danger', !!scene.danger);
+
+    if (scene.danger) { SynthAudio.switchToSudden(); }
+    else if (scene.calm) { SynthAudio.switchToNormal(); SynthAudio.stopHeartbeat(); showFearIndicator(false); }
+
+    const storyEl = document.getElementById('storyText');
+    await typeWriter(storyEl, scene.text);
+
+    const choicesDiv = document.getElementById('choices');
+    choicesDiv.innerHTML = '';
+
+    if (scene.puzzle) {
+        showKeypadPuzzle(scene.puzzle.code, scene.puzzle.onSuccess, scene.puzzle.onFail);
+    } else {
+        scene.choices.forEach((choice, index) => {
+            const btn = document.createElement('div');
+            btn.className = 'choice';
+            if (choice.class) btn.classList.add(choice.class);
+
+            let displayText = choice.text;
+            let isDisabled = false;
+            if (choice.batteryReq && gameState.battery < choice.batteryReq) {
+                displayText += ` [NEED ${choice.batteryReq}% BATTERY]`;
+                isDisabled = true;
+                btn.classList.add('disabled');
+            }
+
+            btn.textContent = displayText;
+
+            // Key hint
+            if (index < 4) {
+                const hint = document.createElement('span');
+                hint.className = 'key-hint';
+                hint.textContent = index + 1;
+                btn.appendChild(hint);
+            }
+
+            btn.style.animationDelay = `${0.15 + index * 0.15}s`;
+
+            btn.onclick = () => {
+                if (isDisabled) return;
+                showStatic(100);
+                SynthAudio.playSFX('click');
+                if (choice.action) choice.action();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+            choicesDiv.appendChild(btn);
+        });
+
+        // Handle timed choices
+        if (scene.choices.some(c => c.timed)) {
+            showTimedChoices(scene, scene.timedDuration || 8000);
+        }
+    }
+
+    updateCharacters();
+    updateSceneCounter();
+
+    // Auto-save on scene change
+    if (gameState.scene > 0) SaveSystem.save();
+}
+
+// ============== BATTERY & TIME ==============
+function startBatteryDrain() {
+    if (batteryInterval) clearInterval(batteryInterval);
+    batteryInterval = setInterval(() => {
+        if (gameState.battery > 0) {
+            gameState.battery -= gameState.batteryDrainRate;
+            if (gameState.battery < 0) gameState.battery = 0;
+            updateBattery();
+
+            if (gameState.battery <= 8 && Math.random() < 0.35) {
+                gameState.battery += 6;
+                updateBattery();
+            }
+
+            if (gameState.battery <= 0) {
+                showScene({
+                    location: "SYSTEM FAILURE",
+                    danger: true,
+                    text: `Your camera dies. Total darkness swallows you whole.
+
+In the pitch black of Hollow Creek, you are nothing. A heartbeat in the void.
+
+Something brushes against your neck. Something cold. Something that was waiting for this exact moment.
+
+<div class="warning">BATTERY DEPLETED — NIGHT VISION OFFLINE</div>
+<div class="document">RECORDING TERMINATED — FOOTAGE CORRUPTED</div>`,
+                    choices: [{ text: "RESTART INVESTIGATION", action: () => restartGame(), class: "restart" }]
+                });
+                clearInterval(batteryInterval);
+                clearInterval(timeInterval);
+                SynthAudio.playSFX('jumpscare');
+                screenShake();
+            }
+        }
+    }, 7000);
+}
+
+function startTime() {
+    if (timeInterval) clearInterval(timeInterval);
+    timeInterval = setInterval(() => { gameState.time++; updateTimestamp(); }, 1000);
+}
+
+// ============== SCENES ==============
+const scenes = {
+    // === ACT 1: ARRIVAL ===
+    0: {
+        location: "LOCATION: ASYLUM MAIN GATE",
+        calm: true,
+        text: `The camera flickers on. Green phosphorescence floods your vision as night mode activates.
 
 Hollow Creek Psychiatric Facility. The place where hope came to die.
 
 Three years ago, your sister Emma vanished without a trace. The police gave up. Her case went cold. But you never stopped searching.
 
-Then you found it—a photograph hidden in her old apartment. On the back, stamped in faded ink: "Subject 47."
+Then you found it — a photograph hidden in her old apartment. On the back, stamped in faded ink: <span class="glitch-text" data-text="Subject 47">"Subject 47."</span>
 
 The trail led here. To this godforsaken place.
 
-The iron gates hang open, rust bleeding down their bars like old wounds. Beyond them, the asylum waits in darkness.
+The iron gates hang open, rust bleeding down their bars like old wounds. Beyond them, the asylum waits in darkness. Something moves in an upper window. Or maybe it's just the wind.
 
-You check your battery. Full charge. You take a breath.
+You check your battery. Full charge. You check your hands. They're shaking.
 
 Time to find the truth.
 
-<div class="document">INVESTIGATION LOG: Entering Hollow Creek Facility. Time: 11:47 PM.</div>`,
-                choices: [
-                    { text: "Enter the asylum", action: () => goToScene(1) }
-                ]
-            },
+<div class="document">INVESTIGATION LOG — Entering Hollow Creek Facility. Time: 11:47 PM. Temperature: 3°C. Wind: Still. Too still.</div>`,
+        choices: [
+            { text: "Steel yourself and enter the asylum", action: () => { Achievements.unlock('first_steps'); SynthAudio.playSFX('door'); goToScene(1); } },
+            { text: "Circle the perimeter first — look for another way in", action: () => { Achievements.unlock('first_steps'); addItem("RUSTY KEY"); changeBattery(-5); goToScene(1); } }
+        ]
+    },
 
-            // Scene 1: Reception Hall
-            {
-                location: "LOCATION: RECEPTION HALL",
-                text: `The reception hall is a graveyard of forgotten lives. Patient files carpet the floor—hundreds of names, hundreds of stories, all abandoned.
+    // Scene 1: Reception Hall
+    1: {
+        location: "LOCATION: RECEPTION HALL",
+        text: `The reception hall is a graveyard of forgotten lives. Patient files carpet the floor — hundreds of names, hundreds of stories, all abandoned.
 
-A chandelier sways overhead, creaking in a wind that shouldn't exist indoors. The walls... God, the walls. Someone has carved symbols into them. Hundreds of them. The same pattern, over and over.
+A chandelier sways overhead, creaking in a wind that shouldn't exist indoors. The walls... God, the walls. Someone has carved symbols into every surface. Hundreds of them. The same spiral pattern, over and over.
 
 Your camera catches movement.
 
-Two shapes emerge from the shadows. Your finger hovers over the power button, ready to run.
+Two shapes emerge from the shadows. Your finger finds the power button, ready to run.
 
 But then you see them clearly.
 
-One stands nearly seven feet tall—a hulking figure with grey-green skin and what looks like moss growing from his shoulders. A troll. An actual troll.
+One stands nearly seven feet tall — a hulking figure with grey-green skin and what looks like moss growing from his shoulders. A troll. An actual troll.
 
-Beside him, something smaller. A meerkat standing upright, wearing the tattered remains of a hospital gown. Its eyes are too intelligent, too human.
+Beside him, something smaller. A meerkat standing upright, wearing the tattered remains of a hospital gown. Its eyes are too intelligent. Too human.
 
 The troll raises massive hands, palms out.
 
@@ -1359,61 +1600,62 @@ The troll raises massive hands, palms out.
 The meerkat nods, whiskers twitching nervously.
 
 "We used to be... well." Grimlock's face twists with something like grief. "We used to be like you."`,
-                choices: [
-                    { text: "Lower your camera and talk to them", action: () => { changeSanity(-5); goToScene(2); } },
-                    { text: "Keep recording and ask what happened", action: () => goToScene(2) }
-                ]
-            },
+        choices: [
+            { text: "Lower your camera and talk to them", action: () => { changeSanity(-5); goToScene(2); } },
+            { text: "Keep recording and ask what happened to them", action: () => { goToScene(2); } }
+        ]
+    },
 
-            // Scene 2: The Bargain
-            {
-                location: "LOCATION: RECEPTION HALL",
-                text: `<div class="document">RECORDING LOG: Subjects identified as "Grimlock" (Patient #089) and "Whiskers" (Patient #112). Genetic modification confirmed.</div>
+    // Scene 2: The Bargain
+    2: {
+        location: "LOCATION: RECEPTION HALL",
+        text: `<div class="document">RECORDING LOG — Subjects identified as "Grimlock" (Patient #089) and "Whiskers" (Patient #112). Genetic modification confirmed. Real names unknown.</div>
 
 Grimlock lowers himself to one knee, bringing his craggy face closer to your camera level.
 
-"There was a doctor here. Mortimer. Said he was gonna cure us." He laughs bitterly. "Cure. That's what he called it. Turned us into monsters instead."
+"There was a doctor here. Mortimer. Said he was gonna cure us." He laughs bitterly. "Cure. That's what he called it. Turned us into this instead."
 
-Whiskers steps forward, his voice refined and articulate—jarringly human from such an inhuman form.
+Whiskers steps forward. His voice is refined, articulate — jarringly human for such an inhuman form.
 
-"We've been trapped in this nightmare for... honestly, I've lost count. Time moves strangely here. Days blur into weeks into months."
+"We've been trapped in this nightmare for... honestly, I've lost count. Time moves strangely here. Days blur into weeks. Weeks into months." He pauses. "Or has it been years?"
 
 He glances toward a dark corridor, fear flickering across his features.
 
 "There's something in the basement. Something worse than us. We hear it moving at night. Feeding."
 
-Grimlock stands, his bulk blocking out what little light there is.
+Grimlock stands, his bulk blocking out what little light remains.
 
-"Look, I'll be straight with you. There's a way out—service exit in the east wing. But it's locked from a control room in the lower levels. We've tried to reach it alone. We... we can't."
+"Listen. There's a way out — service exit in the east wing. But it's locked from a control room in the lower levels. We need a code. We've tried to reach it alone. We... we can't."
 
 He extends a massive hand.
 
 "Help us escape this place, and we'll help you find whoever you're looking for. Deal?"
 
-<div class="warning">CRITICAL DECISION: Choose your path forward.</div>`,
-                choices: [
-                    { 
-                        text: "Accept their help - form an alliance", 
-                        action: () => { 
-                            gameState.companions.grimlock = true; 
-                            gameState.companions.whiskers = true;
-                            changeSanity(-10);
-                            goToScene(3); 
-                        } 
-                    },
-                    { 
-                        text: "Go alone - you can't trust mutants", 
-                        action: () => goToScene(2.5),
-                        class: "dangerous"
-                    }
-                ]
-            },
-
-            // Scene 2.5: Going alone
+<div class="warning">CRITICAL DECISION — CHOOSE YOUR PATH</div>`,
+        choices: [
             {
-                location: "LOCATION: DARK CORRIDOR",
-                danger: true,
-                text: `<div class="warning">PROCEEDING WITHOUT ALLIES</div>
+                text: "Accept their help — form an alliance",
+                action: () => {
+                    gameState.companions.grimlock = true;
+                    gameState.companions.whiskers = true;
+                    changeSanity(-5);
+                    Achievements.unlock('alliance');
+                    goToScene(3);
+                }
+            },
+            {
+                text: "Go alone — you can't trust mutants",
+                action: () => { Achievements.unlock('lone_wolf'); goToScene('2b'); },
+                class: "dangerous"
+            }
+        ]
+    },
+
+    // Scene 2b: Going alone — bad ending path
+    '2b': {
+        location: "LOCATION: DARK CORRIDOR",
+        danger: true,
+        text: `<div class="warning">PROCEEDING WITHOUT ALLIES</div>
 
 You step back from the outstretched hand.
 
@@ -1423,13 +1665,15 @@ Grimlock's arm drops. Something like hurt flashes across his inhuman face.
 
 "Your funeral, friend."
 
-Whiskers watches you go, his small form shrinking in your camera's viewfinder as you back away.
+Whiskers watches you go, his small form shrinking in your camera's viewfinder.
 
-"Please reconsider," he calls out, voice echoing. "This place... it breaks people. Even the strong ones. Especially the strong ones."
+"Please reconsider," he calls out. "This place... it breaks people. Even the strong ones. <em>Especially</em> the strong ones."
 
 You turn and walk into the darkness.
 
-The corridor stretches ahead, impossibly long. Your footsteps echo. Something else echoes back.
+The corridor stretches ahead, impossibly long. Your footsteps echo.
+
+Something else echoes back.
 
 Something that isn't your footsteps.
 
@@ -1440,23 +1684,23 @@ You're alone. Completely alone.
 And something knows it.
 
 <div class="warning">PSYCHOLOGICAL STRAIN INCREASING</div>`,
-                choices: [
-                    { text: "Continue forward alone", action: () => { changeSanity(-30); goToScene(2.6); }, class: "critical" },
-                    { text: "Go back and accept their help", action: () => { gameState.companions.grimlock = true; gameState.companions.whiskers = true; goToScene(3); } }
-                ]
-            },
+        choices: [
+            { text: "Continue forward alone — no turning back", action: () => { changeSanity(-30); goToScene('2c'); }, class: "critical" },
+            { text: "Swallow your pride and go back", action: () => { gameState.companions.grimlock = true; gameState.companions.whiskers = true; goToScene(3); } }
+        ]
+    },
 
-            // Scene 2.6: Alone bad ending
-            {
-                location: "LOCATION: UNKNOWN",
-                danger: true,
-                text: `The camera shakes. Your breathing comes in ragged gasps.
+    // Scene 2c: Alone bad ending
+    '2c': {
+        location: "LOCATION: UNKNOWN",
+        danger: true,
+        text: `The camera shakes. Your breathing comes in ragged gasps.
 
 You don't know how long you've been walking. Hours? Days? The corridors all look the same. Every door leads to another hallway. Every hallway leads to another door.
 
 You start hearing Emma's voice.
 
-"Over here... I'm over here..."
+<span class="glitch-text" data-text="Over here... I'm over here...">"Over here... I'm over here..."</span>
 
 You follow it. Of course you follow it. She needs you.
 
@@ -1468,29 +1712,64 @@ Then you hear something else. Something real.
 
 Wet. Heavy. Close.
 
-The camera falls from your hands as something massive wraps around your legs. The last frame shows the ceiling—cracked tiles, exposed pipes, a hundred patient faces carved into the concrete, all of them screaming.
+The camera falls from your hands as something massive wraps around your legs. The last frame shows the ceiling — cracked tiles, exposed pipes, a hundred patient faces carved into the concrete.
+
+All of them screaming.
 
 The last thing recorded is not a scream.
 
 It's silence.
 
 <div class="warning">INVESTIGATION TERMINATED</div>
-<div class="document">SUBJECT 47: STATUS UNKNOWN<br>INVESTIGATOR: MISSING - PRESUMED DECEASED</div>`,
-                choices: [
-                    { text: "RESTART INVESTIGATION", action: () => restartGame(), class: "restart" }
-                ]
-            },
+<div class="document">SUBJECT 47: STATUS UNKNOWN | INVESTIGATOR: MISSING — PRESUMED DECEASED</div>`,
+        choices: [
+            { text: "RESTART INVESTIGATION", action: () => restartGame(), class: "restart" }
+        ]
+    },
 
-            // Scene 3: Doctor's Office
+    // Scene 3: The Ward — NEW SCENE
+    3: {
+        location: "LOCATION: PATIENT WARD C",
+        text: `Together, you move deeper into the asylum.
+
+Grimlock takes point, his massive shoulders forcing open doors sealed for years. The ward stretches before you — rows of rusted beds, each one bolted to the floor. Leather restraints hang from the frames like dead snakes.
+
+Whiskers moves to a wall covered in scratches. Tally marks. Hundreds of them.
+
+"This was my ward," he says quietly. "Bed 7. I spent... I don't know how long, strapped to that frame. Listening to the others scream."
+
+Something crunches under your foot. You look down.
+
+Teeth. A handful of human teeth scattered across the tile.
+
+Grimlock reaches a door at the far end and stops.
+
+"The doctor's wing is through here. But—" He tilts his head, listening. "Do you hear that?"
+
+You listen. Faintly, from somewhere below, a rhythmic sound. Like breathing. But too slow. Too deep. As if the building itself is inhaling.
+
+"It's awake," Whiskers whispers. "We need to move. Quickly."
+
+On a desk near the door, you spot a clipboard with a four-digit number scrawled in red marker: <strong>4-7-2-1</strong>
+
+<div class="document">NOTE: "Override code for Lab B-7 keypad. DO NOT share with patients. — M."</div>`,
+        choices: [
+            { text: "Note the code and press forward to Mortimer's office", action: () => { addItem("CODE: 4721"); goToScene(4); } },
             {
-                location: "LOCATION: DR. MORTIMER'S OFFICE",
-                text: `Together, you move deeper into the asylum.
+                text: "Search the ward thoroughly for supplies",
+                action: () => { addItem("CODE: 4721"); addItem("MEDICAL KIT"); changeBattery(10); changeSanity(-5); goToScene(4); }
+            }
+        ]
+    },
 
-Grimlock takes point, his massive shoulders forcing open doors that have been sealed for years. Whiskers navigates from memory, guiding you through service corridors and forgotten passageways.
-
-You reach a door marked "DR. M. MORTIMER - RESEARCH DIRECTOR."
+    // Scene 4: Doctor's Office
+    4: {
+        location: "LOCATION: DR. MORTIMER'S OFFICE",
+        text: `You reach a door marked "DR. M. MORTIMER — RESEARCH DIRECTOR."
 
 Inside, the office is frozen in time. Books on genetic engineering. Anatomy charts showing things that shouldn't exist. A desk covered in handwritten notes.
+
+Grimlock stays by the door, keeping watch. His ears twitch at every sound.
 
 Whiskers finds a leather-bound journal. His paws tremble as he reads.
 
@@ -1504,513 +1783,642 @@ Wordlessly, he shows you.
 
 A photograph. Paper-clipped to the journal entry.
 
-Your sister's face stares back at you. Emma. Smiling in what looks like an intake photo. Below it, stamped in red: SUBJECT 47 - PRIORITY ASSET.
+Your sister's face stares back at you. Emma. Smiling in what looks like an intake photo. Below it, stamped in red: <span class="glitch-text" data-text="SUBJECT 47 — PRIORITY ASSET">SUBJECT 47 — PRIORITY ASSET</span>
 
-The camera shakes in your hands.
+Your hands shake. The camera shakes with them.
 
-Grimlock's voice is quiet. Gentle.
+Grimlock's voice is quiet. "The basement. That's where Mortimer kept the special ones." He pauses. "That's also where the thing lives."
 
-"The basement. That's where Mortimer kept the ones he considered... special." He pauses. "That's also where the thing lives. The one we told you about."
+On Mortimer's desk, you find a battery pack tucked in a drawer.
 
-<div class="warning">EMOTIONAL TRAUMA DETECTED - MAINTAIN FOCUS</div>`,
-                choices: [
-                    { text: "Search the office for more clues", action: () => { addItem("DR. MORTIMER'S JOURNAL"); addItem("EMMA'S PHOTO"); changeBattery(15); changeSanity(-10); goToScene(4); } },
-                    { text: "Go to the basement immediately", action: () => { addItem("EMMA'S PHOTO"); changeSanity(-15); goToScene(4); }, class: "dangerous" }
-                ]
-            },
-
-            // Scene 4: Basement Descent
+<div class="warning">EMOTIONAL TRAUMA DETECTED — MAINTAIN FOCUS</div>`,
+        choices: [
             {
-                location: "LOCATION: BASEMENT STAIRWELL",
-                danger: true,
-                text: `The stairs descend into absolute darkness.
+                text: "Search the office thoroughly for more clues",
+                action: () => { addItem("DR. MORTIMER'S JOURNAL"); addItem("EMMA'S PHOTO"); addItem("SECURITY BADGE"); changeBattery(15); changeSanity(-10); Achievements.unlock('detective'); goToScene(5); }
+            },
+            {
+                text: "Go to the basement immediately — Emma needs you",
+                action: () => { addItem("EMMA'S PHOTO"); changeSanity(-15); goToScene(5); },
+                class: "dangerous"
+            }
+        ]
+    },
 
-Your camera struggles to pierce it. Even with night vision cranked to maximum, you can barely see ten feet ahead. The air down here is different—thick and wet, heavy with the smell of stagnant water and something else.
+    // Scene 5: The Chapel — NEW SCENE
+    5: {
+        location: "LOCATION: ASYLUM CHAPEL",
+        text: `The route to the basement passes through the asylum chapel.
 
-Something organic. Something alive.
+You weren't ready for this.
+
+Every pew has been overturned, arranged in a massive spiral pattern — the same symbol carved into the walls upstairs. At the center of the spiral sits an altar, and on that altar...
+
+Dolls. Dozens of them. Each one wearing a tiny hospital gown. Each one with a photograph pinned to its face. Patients. All of Mortimer's victims, rendered in miniature.
+
+Grimlock makes a sound low in his throat. Part growl, part sob.
+
+"I remember when he made us watch," he says. "Made us sit here and... pray. Pray to a thing we couldn't see. A thing beneath the floor."
+
+Whiskers picks up one of the dolls. A meerkat-shaped one. His own face stares back at him from the photograph pinned to it.
+
+"He documented everything," Whiskers says, his voice hollow. "Every transformation. Every failure. Every death."
+
+Behind the altar, you find a door leading down. The stairs descend into blackness.
+
+From below: that breathing sound again. Louder now.
+
+There's a keypad lock on the basement door.
+
+<div class="document">PERSONNEL LOG: "The basement access code has been changed. Check Lab B-7 override notes. — Dr. M."</div>`,
+        puzzle: {
+            code: '4721',
+            onSuccess: () => { changeSanity(-10); SynthAudio.playSFX('door'); goToScene(6); },
+            onFail: () => { changeSanity(-5); changeBattery(-3); }
+        }
+    },
+
+    // Scene 6: Basement Descent
+    6: {
+        location: "LOCATION: BASEMENT STAIRWELL",
+        danger: true,
+        text: `The lock clicks open. The door groans inward.
+
+The stairs descend into absolute darkness.
+
+Your camera struggles to pierce it. Even with night vision at maximum, you can barely see ten feet ahead. The air is different down here — thick and wet, heavy with the smell of stagnant water and something organic. Something alive.
 
 Grimlock squeezes through the narrow stairwell, stone scraping against stone.
 
 "Stay close," he rumbles. "And stay quiet."
 
-Whiskers moves beside you, his whiskers twitching constantly, reading the air.
+Whiskers moves beside you, his whiskers twitching, reading the air like antennae.
 
 "There's something you should know," he whispers. "About the creature down here."
 
 You keep the camera rolling.
 
-"Mortimer called it Project Ouroboros. His masterpiece, he said. He took patients—dozens of them—and he... merged them. With something. Something old. Something that was already here when the asylum was built."
+"Mortimer called it <span class="glitch-text" data-text="Project Ouroboros">Project Ouroboros</span>. His masterpiece. He took patients — dozens of them — and he... merged them. With something ancient. Something that was already beneath this asylum when they built it."
 
 The corridor opens into a vast underground chamber. Water covers the floor, black and still as glass.
 
-Something moves beneath the surface. Something enormous.
+Something massive moves beneath the surface. Ripples spread in impossible patterns.
 
 A sound fills the chamber. Low. Resonant. Hungry.
 
 Hissing.
 
-<div class="warning">HOSTILE ENTITY DETECTED - EXTREME CAUTION ADVISED</div>`,
-                choices: [
-                    { 
-                        text: "Let Grimlock scout ahead while you prepare", 
-                        action: () => { changeSanity(-15); goToScene(5); }
-                    },
-                    { 
-                        text: "Use your camera's high-intensity light to scan the area",
-                        action: () => { changeBattery(-15); changeSanity(-10); goToScene(5); },
-                        class: "dangerous",
-                        batteryReq: 10
-                    }
-                ]
-            },
-
-            // Scene 5: The Anaconda
+<div class="warning">HOSTILE ENTITY DETECTED — EXTREME CAUTION</div>`,
+        choices: [
             {
-                location: "LOCATION: FLOODED CHAMBER",
-                danger: true,
-                text: `<div class="warning">!!! EXTREME DANGER !!!</div>
+                text: "Let Grimlock scout ahead while you prepare",
+                action: () => { changeSanity(-15); goToScene(7); },
+                timed: true,
+                timedFail: () => { changeSanity(-25); goToScene(7); }
+            },
+            {
+                text: "Use camera's infrared burst to scan the area",
+                action: () => { changeBattery(-15); changeSanity(-10); showFlash(); goToScene(7); },
+                class: "dangerous",
+                batteryReq: 15
+            }
+        ],
+        _sceneId: 6,
+        timedDuration: 10000
+    },
+
+    // Scene 7: The Anaconda
+    7: {
+        location: "LOCATION: FLOODED CHAMBER",
+        danger: true,
+        text: `<div class="warning">!!! EXTREME DANGER !!!</div>
 
 It comes from above.
 
 No warning. No sound. Just thirty feet of nightmare dropping from the darkness like the wrath of a dead god.
 
-The creature defies description. Your camera tries to capture it—scales the color of bruised flesh, a body thick as an oak tree, coils that seem to go on forever. But it's the faces that break something inside you.
+The creature defies description. Your camera tries to capture it — scales the color of bruised flesh, a body thick as an oak tree, coils that seem to go on forever. But it's the faces that break something inside you.
 
 Human faces. Pressed against the inside of its skin. Dozens of them. Mouths open in eternal, silent screams.
 
-This is what Mortimer created. This is Project Ouroboros.
+This is what Mortimer created. This is <span class="glitch-text" data-text="Project Ouroboros">Project Ouroboros</span>.
 
 It strikes.
 
 Grimlock moves faster than anything his size should be able to. He throws you aside like you weigh nothing. The impact saves your life.
 
-The coils find him instead.
+The coils wrap around him. You hear bones straining. Grimlock's roar of pain becomes a roar of raw, primal fury.
 
-You hear bones breaking. Grimlock's roar of pain becomes a roar of defiance.
+Something inside you snaps — not fear, but resolve. You grab a broken steel pipe from the rubble and slam it against the creature's exposed underbelly. Whiskers is right beside you, tearing at the coils with claws sharper than they look.
 
-"GO!" he bellows, his voice cracking. Blood runs from his mouth. "FIND YOUR SISTER! TELL THEM WHAT HAPPENED HERE!"
+"NOBODY ELSE DIES!" you scream, driving the pipe deeper.
 
-Whiskers grabs your arm with surprising strength, dragging you toward a side tunnel.
+The creature shrieks — a sound like a hundred voices screaming at once. Its grip loosens for a fraction of a second.
 
-"We have to move. NOW."
+That's all Grimlock needs.
 
-The last thing your camera captures: Grimlock's eyes, locked on the lens. Not afraid. Not angry.
+With a roar that shakes the chamber walls, he TEARS himself free. His massive hands seize the creature's jaw and wrench it open. Muscles bulge. Veins like steel cables. He's not just fighting — he's becoming something more.
 
-Proud.
+"YOU DON'T GET TO TAKE ANYONE ELSE!" Grimlock bellows, and with one devastating heave, he hurls the creature sideways into the stone wall. The impact cracks the ancient masonry. The Ouroboros writhes, stunned, then retreats into the black water with a furious hiss.
 
-Then the coils tighten, and he's gone.
+Grimlock stands there, bleeding, chest heaving. Deep gashes across his arms and torso. One eye swelling shut. But standing. Alive. Unbroken.
 
-<div class="warning">COMPANION LOST: GRIMLOCK - KILLED IN ACTION</div>`,
-                choices: [
-                    { text: "Flee into the tunnels with Whiskers", action: () => { gameState.companions.grimlock = false; changeSanity(-25); goToScene(6); }, class: "critical" }
-                ]
-            },
+He looks at you — and something new burns in those eyes. Not just rage. Respect.
 
-            // Scene 6: Separated
-            {
-                location: "LOCATION: UNKNOWN TUNNELS",
-                text: `Run. Don't think. Just run.
+"You came back for me," he says, almost surprised. "No one's ever come back."
 
-The tunnels twist and branch and double back. Whiskers is somewhere behind you—or ahead of you—his panicked chittering echoing off the walls.
+You feel it too — something changed inside you. The fear isn't gone, but it's smaller now. You faced the nightmare and you didn't run. You fought.
+
+Whiskers steps forward, trembling but standing tall.
+
+"We stay together," he says firmly. "All of us. No matter what."
+
+<div class="document">OUROBOROS REPELLED — ALL COMPANIONS SURVIVED<br>INVESTIGATOR RESOLVE: STRENGTHENED</div>`,
+        choices: [
+            { text: "Press forward together — stronger than before", action: () => { changeSanity(-15); goToScene(8); }, class: "critical" }
+        ]
+    },
+
+    // Scene 8: The Morgue — Together — EXPANDED
+    8: {
+        location: "LOCATION: SUB-BASEMENT MORGUE",
+        text: `You move through the tunnels as a unit now. No one ahead, no one behind. Together.
+
+Grimlock leads, one arm hanging at a bad angle, but his steps are steady. Whiskers stays at your flank, his senses sharper than any equipment you carry.
+
+And you — you walk with purpose. The fear is still there, lapping at the edges of your mind like black water. But something stronger has taken root. Determination. Not just for Emma. For all of them.
 
 Then your camera dies.
 
 Total darkness. The kind that presses against your eyes like a physical weight.
 
-You stand there, breathing hard, listening to your own heartbeat thunder in your ears.
+"Easy," Grimlock's voice rumbles in the dark. "I can see. Stay close."
 
-After an eternity, the camera flickers back to life.
+A massive hand finds your shoulder. Guides you forward. After an eternity, the camera flickers back to life.
 
-You're alone.
+You're in a morgue. Stainless steel drawers line the walls, most of them hanging open. The smell is indescribable.
 
-No Grimlock. His sacrifice bought you time. Bought you survival.
+One drawer is labeled. A fresh label, not faded like the others.
 
-No Whiskers. Lost somewhere in the maze.
+<span class="glitch-text" data-text="SUBJECT 47 — TRANSFER PENDING">"SUBJECT 47 — TRANSFER PENDING"</span>
 
-Just you. Your camera. And whatever battery you have left.
+You open it with shaking hands.
 
-You could break down. You could curl up in the darkness and wait for the end.
+Empty. But warm. Recently warm.
 
-But Emma is still down here. Somewhere.
+She was here. Emma was HERE.
 
-You keep moving.
+A note taped inside the drawer reads: "Transfer to Entity Chamber completed. Neural bridge at 87%. Awaiting final calibration. — M."
 
-The tunnel opens into a chamber, and you realize you've found something. Equipment. Medical machinery. Tanks filled with murky fluid.
+You look at your companions. Grimlock, battered but unbroken. Whiskers, frightened but standing firm.
 
-Mortimer's real laboratory. Hidden beneath the asylum itself.
+"She's close," you say. Your voice is steady now. When did that happen? "We're going to get her back."
 
-<div class="document">RECORDING CONTINUES: Investigator alone. Psychological stress elevated. Proceeding with mission.</div>`,
-                choices: [
-                    { text: "Explore the laboratory", action: () => { changeSanity(-10); goToScene(7); } },
-                    { text: "Search for Whiskers first", action: () => { changeBattery(-10); goToScene(7); } }
-                ]
-            },
+Grimlock cracks his knuckles. "Then let's stop wasting time."
 
-            // Scene 7: The Laboratory
-            {
-                location: "LOCATION: LABORATORY OF HORRORS",
-                calm: true,
-                text: `The laboratory stretches before you like a cathedral built by madmen.
+Something has shifted in you. You're no longer just a person with a camera searching for their sister. You're a force. And you have allies who would walk through hell beside you.
+
+You already have.
+
+<div class="document">TRANSFER LOG — Subject 47 moved to Entity Chamber. Neural integrity: 87%. Consciousness: Intact but dormant.</div>`,
+        choices: [
+            { text: "Press forward together — find the laboratory", action: () => { changeSanity(-5); goToScene(9); } },
+            { text: "Search the morgue for supplies first", action: () => { changeBattery(10); goToScene(9); } }
+        ]
+    },
+
+    // Scene 9: The Laboratory
+    9: {
+        location: "LOCATION: LABORATORY OF HORRORS",
+        calm: true,
+        text: `The laboratory stretches before you like a cathedral built by madmen.
 
 Glass cylinders line the walls. Inside them float... things. Failed experiments. Bodies twisted into shapes that couldn't survive. Faces frozen mid-scream.
 
-At the center of it all stands a chair. Medical restraints. Neural interface helmet. Needles and wires and tubes feeding into machinery that hums with power even now.
+At the center stands a chair. Medical restraints. Neural interface helmet. Needles and wires feeding into machinery that hums with power. Even now. Even after all this time.
 
 This is where it happened. This is where Mortimer played god.
 
-"You made it."
+Grimlock's fists clench at his sides. "This is where they made me," he says quietly. "This chair. These needles." His voice breaks for just a moment. Then the steel returns. "Never again."
 
-You spin, camera raised like a weapon.
+A figure steps from the shadows. You raise your camera like a weapon.
 
-Whiskers steps from the shadows. But something's different about him. He stands straighter. His eyes are clear. Calm.
+A skeleton. Wearing a pristine lab coat. Carrying a lantern that flickers with pale blue light.
 
-Behind him walks a figure that stops your heart.
+"Don't be afraid," Whiskers says quickly. "This is Mortis. He was Mortimer's assistant. He tried to stop the experiments. Mortimer... punished him."
 
-A skeleton. Wearing a pristine lab coat. Carrying an old lantern that flickers with pale light.
+The skeleton inclines its skull. When it speaks, the voice comes from everywhere.
 
-"Don't be afraid," Whiskers says. "This is Mortis. He was Mortimer's assistant. He tried to stop the experiments. Mortimer... punished him for it."
+"I've been waiting decades for someone like you. Someone who could end this."
 
-The skeleton inclines its skull in greeting. When it speaks, the voice seems to come from everywhere and nowhere.
+Mortis regards your group with something like wonder in those empty sockets.
 
-"I've been waiting for someone like you. Someone who could end this."
+"Three of you. Together. In all my years haunting these halls, no one has ever made it this far without losing someone." He pauses. "You're different. Stronger. The entity will feel that."
 
-Whiskers steps forward.
+You stand taller. You feel it too — the strength that comes from fighting alongside people who won't abandon each other. The investigator who crept into this asylum with nothing but a camera has become something more. A leader. A fighter.
 
-"Grimlock died so we could reach this place. His courage... it showed me something. I spent so long being afraid. Running. Hiding." His small hands clench into fists. "No more."
+Whiskers steps forward, his small hands clenched into fists.
 
-<div class="document">ALLIES REJOINED - BATTERY CACHE LOCATED (+30%)</div>`,
-                choices: [
-                    { text: "Listen to Mortis's story", action: () => { changeBattery(30); gameState.companions.whiskers = true; gameState.companions.mortis = true; changeSanity(10); goToScene(8); } }
-                ]
-            },
+"The fight against the Ouroboros showed me something. I spent so long being afraid. Running. Hiding." He meets your eyes. "No more."
 
-            // Scene 8: The Truth
+Grimlock puts a massive hand on Whiskers' shoulder. "No more running. For any of us."
+
+<div class="document">ALLIES UNITED — BATTERY CACHE LOCATED (+25%)</div>`,
+        choices: [
             {
-                location: "LOCATION: MORTIMER'S LABORATORY",
-                text: `Mortis moves to an old console, skeletal fingers dancing across controls that somehow still respond.
+                text: "Listen to Mortis — learn the full truth",
+                action: () => {
+                    changeBattery(25);
+                    gameState.companions.whiskers = true;
+                    gameState.companions.mortis = true;
+                    changeSanity(10);
+                    goToScene(10);
+                }
+            }
+        ]
+    },
 
-"I need to show you something. You need to understand what you're walking into."
+    // Scene 10: The Truth
+    10: {
+        location: "LOCATION: MORTIMER'S LABORATORY",
+        text: `Mortis moves to a console, skeletal fingers dancing across controls that somehow respond.
 
-Screens flicker to life. Footage. Old recordings.
+"I need to show you what you're walking into."
 
-"I came here as a student. Idealistic. Naive. Mortimer seemed like a visionary—pushing the boundaries of human potential."
+Screens flicker to life. Old footage. Recordings from decades past.
 
-The footage shows experiments. Patients. Procedures.
+"I came here as a student. Idealistic. Naive. Mortimer seemed like a visionary — pushing the boundaries of human potential."
 
-"But he found something beneath the asylum. Something that had been sleeping for centuries. An entity that feeds on consciousness. On souls. On the very essence of what makes us human."
+The footage shows experiments. Patients strapped to tables. Injections. Screaming.
+
+Grimlock watches the footage, jaw clenched. Somewhere on those screens is the moment he stopped being human. But he doesn't look away.
+
+"But he found something beneath this place. Something ancient. An entity that feeds on consciousness. On souls. On the very essence of what makes us human."
 
 Mortis turns to face you. Empty eye sockets somehow convey infinite sadness.
 
-"I tried to stop him. Sabotaged equipment. Freed patients. He caught me." The skeleton gestures at its own form. "This is my punishment. Awareness without flesh. Existence without life."
+"I tried to stop him. Sabotaged equipment. Freed patients. He caught me." The skeleton gestures at its own form. "This is my punishment. Awareness without flesh. Existence without life. Forty-three years."
 
-Whiskers speaks up, his voice steady with newfound resolve.
+Whiskers speaks up, steady now.
 
-"Your sister—Emma—was supposed to be the final piece. Her mind had some quality Mortimer needed. He planned to fuse himself with the entity, using her consciousness as a bridge."
+"Your sister — Emma — was the final piece. Her mind had a quality Mortimer needed. He planned to fuse himself with the entity, using her consciousness as a bridge to become something beyond human."
 
-"But something went wrong," Mortis continues. "The process stalled. She's still in there. Still connected to the entity. Alive, but trapped."
+"But something went wrong," Mortis continues. "The process stalled. She's still in there. Connected to the entity. Alive, but trapped. A consciousness suspended between worlds."
 
-He points to a massive sealed door at the far end of the laboratory.
+He pulls a device from the console. Cold metal. Blinking lights. A frequency disruptor.
 
-"Beyond that door lies the entity. And your sister."
+"This will destabilize the entity. Break the bonds. Free every soul it's consumed." He pauses. "Including your sister."
+
+You take the disruptor. Your hands don't shake anymore.
+
+Grimlock steps up beside you. "We've already beaten his pet monster. This entity is next."
+
+He points to a massive sealed door.
+
+"Beyond that door lies the entity. And Emma."
+
+You look at your team. The troll who fights like a god. The meerkat who conquered his fear. The skeleton who waited forty-three years for this moment. And you — no longer just an investigator. A warrior with a camera.
 
 <div class="warning">FINAL CONFRONTATION IMMINENT</div>`,
-                choices: [
-                    { 
-                        text: "Prepare to face the entity",
-                        action: () => { addItem("FREQUENCY DISRUPTOR"); changeSanity(-20); goToScene(9); },
-                        class: "critical"
-                    },
-                    { 
-                        text: "Search for more batteries first", 
-                        action: () => { addItem("FREQUENCY DISRUPTOR"); changeBattery(20); goToScene(9); }
-                    }
-                ]
-            },
-
-            // Scene 9: The Entity Chamber
+        choices: [
             {
-                location: "LOCATION: THE ENTITY'S DOMAIN",
-                danger: true,
-                text: `<div class="warning">!!! POINT OF NO RETURN !!!</div>
+                text: "Prepare yourself — face the entity",
+                action: () => { addItem("FREQUENCY DISRUPTOR"); changeSanity(-20); goToScene(11); },
+                class: "critical"
+            },
+            {
+                text: "Search for more batteries first — you'll need power",
+                action: () => { addItem("FREQUENCY DISRUPTOR"); changeBattery(20); goToScene(11); }
+            }
+        ]
+    },
+
+    // Scene 11: The Entity Chamber
+    11: {
+        location: "LOCATION: THE ENTITY'S DOMAIN",
+        danger: true,
+        text: `<div class="warning">!!! POINT OF NO RETURN !!!</div>
 
 The door opens.
 
-Your camera can't process what lies beyond. The image warps, distorts, tries to make sense of geometry that shouldn't exist.
+Your camera can't process what lies beyond. The image warps and distorts, trying to make sense of geometry that shouldn't exist.
 
-The chamber is alive. Walls of pulsing flesh. Veins of bioluminescent light threading through tissue that breathes. And at the center...
+The chamber is alive. Walls of pulsing flesh. Veins of bioluminescent light threading through tissue that breathes. The ceiling is impossibly high — or maybe there is no ceiling. Just darkness that goes up forever.
 
-God. At the center.
+And at the center...
 
-A mass of merged consciousness. Hundreds of minds, hundreds of souls, twisted into a single writhing form. You see faces in that horror—patients, doctors, guards—all absorbed. All screaming.
+God.
 
-And there. In the heart of it.
+A mass of merged consciousness. Hundreds of minds, hundreds of souls, twisted into a single writhing form. You see faces — patients, doctors, guards — all absorbed into its flesh. All screaming without sound.
 
-Emma.
+And there. In the heart of the horror.
 
-Her face is visible in the mass. Eyes closed. But alive. You can see her chest rising and falling.
+<span class="glitch-text" data-text="Emma">Emma</span>.
 
-Mortis presses a device into your hands. Cold metal. Blinking lights.
+Her face visible in the mass. Eyes closed. But alive. You can see her chest rise and fall.
 
-"A frequency disruptor. It will destabilize the entity's cohesion. Break the bonds holding those souls together." His voice cracks with something like hope. "But someone has to get close. Someone has to activate it at the core."
+Grimlock growls low — a sound that makes the entity's tendrils recoil. Even this thing fears him now.
 
-Whiskers steps forward before you can speak.
+Mortis presses the disruptor into your hands.
+
+"It will break the bonds. Free every soul. But someone has to get close. Someone has to activate it at the core."
+
+Whiskers steps forward.
 
 "I'll do it."
 
+Grimlock shakes his head. "Not alone, little one."
+
 "Whiskers—"
 
-"No." He turns to face you. This small creature. This terrified meerkat who'd spent years hiding from shadows. "Grimlock died for us. Mortis has been waiting decades for someone to end this. And you—you came here for your sister. You need to be the one to bring her home."
+"No." He turns to face you. This small creature. This terrified meerkat who spent years hiding from shadows. "You came for your sister. You need to bring her home."
 
-His whiskers twitch. Something like a smile crosses his face.
+His whiskers twitch. Something like peace crosses his face.
 
-"Let me be brave. Just this once."`,
-                choices: [
-                    { 
-                        text: "Let Whiskers approach with the disruptor while you record",
-                        action: () => { changeBattery(-20); changeSanity(-20); goToScene(10); },
-                        class: "critical",
-                        batteryReq: 15
-                    },
-                    { 
-                        text: "You approach yourself - Whiskers has suffered enough",
-                        action: () => { changeBattery(-25); changeSanity(-30); goToScene(10.5); },
-                        class: "critical",
-                        batteryReq: 18
-                    }
-                ]
-            },
+"Let me be brave. Just this once."
 
-            // Scene 10: The Disruption
+Grimlock cracks his knuckles. "I'll clear the path. Nothing touches him."
+
+You feel the strength coursing through you — not just adrenaline. Conviction. You've been forged by this place. Every horror, every fight, every impossible choice has made you harder. Sharper. Ready.`,
+        choices: [
             {
-                location: "LOCATION: ENTITY CHAMBER - CRITICAL EVENT",
-                danger: true,
-                text: `Everything happens at once.
+                text: "Let Whiskers carry the disruptor — Grimlock clears a path — you cover them",
+                action: () => { changeBattery(-15); changeSanity(-20); goToScene(12); },
+                class: "critical",
+                batteryReq: 12
+            },
+            {
+                text: "You go yourself — your team covers you",
+                action: () => { changeBattery(-20); changeSanity(-30); goToScene('12b'); },
+                class: "critical",
+                batteryReq: 15
+            }
+        ]
+    },
 
-Whiskers tears across the chamber, weaving between tendrils that erupt from the floor. He's fast—faster than the entity can track.
+    // Scene 12: The Disruption (Whiskers goes — Grimlock clears the path)
+    12: {
+        location: "LOCATION: ENTITY CHAMBER — CRITICAL EVENT",
+        danger: true,
+        text: `Everything happens at once.
 
-You and Mortis work the control console. Mortis's skeletal fingers fly across keys, rerouting power, priming the extraction matrix.
+Grimlock charges. No hesitation. No fear. He hits the entity like a wrecking ball made of pure rage, his fists slamming into tendrils thick as tree trunks, tearing them apart with his bare hands. Every blow clears the path a little more.
 
-"THERE!" Mortis shouts. "She's separating! The disruptor is working!"
+Whiskers follows in his wake, weaving between the chaos, the disruptor clutched to his chest.
+
+You and Mortis work the console. Mortis's skeletal fingers fly across keys, rerouting power, priming the extraction matrix.
+
+"THERE!" Mortis shouts. "She's separating! The disruptor is WORKING!"
 
 The entity screams.
 
-Not a sound—a feeling. Every soul it consumed, crying out at once. Your camera's audio clips. Visual static tears across the frame.
+Not a sound — a feeling. Every consumed soul crying out at once. Your camera's audio clips. Visual static tears across the frame.
 
-But you keep recording. You have to keep recording.
+But you keep recording. You have to keep recording. The world needs to see this.
 
-Whiskers reaches the core. He slams the disruptor against the central mass and hits the activation switch.
+Grimlock takes a tendril across the back — it would have killed a normal being. He barely flinches. He grabs it, yanks, and HURLS the severed mass into the wall. "KEEP MOVING, WHISKERS!"
 
-Light. Blinding, even through the camera.
+Whiskers reaches the core. He slams the disruptor against the central mass and hits the switch.
 
-When it fades, the entity is coming apart. Streams of light—freed souls—spiral toward the ceiling and vanish. Decades of prisoners, finally released.
+Light. Blinding, even through the camera. The purest white light you've ever seen.
 
-Mortis works the console frantically.
+When it fades, the entity is coming apart. Streams of light — freed souls — spiral toward the ceiling and vanish. Decades of prisoners, finally released.
 
-"I've got her! Subject 47 is separating from the collective!"
+Mortis works frantically.
 
-On the screen, you see it. Emma's consciousness, pulling free from the nightmare. Whole. Intact.
+"I've got her! Subject 47 is separating from the collective! Neural bridge disconnecting!"
+
+On the screen: Emma's consciousness, pulling free from the nightmare. Whole. Intact.
 
 Saved.
 
-Whiskers lies at the base of the entity, the disruptor clutched in his small hands. He's not moving.
+Whiskers lies at the base of the dissolving entity, the disruptor clutched in his small hands. He's not moving. But he's breathing.
 
-But he's breathing.
+Grimlock stands over him like a guardian, bleeding from a dozen wounds, daring the dying entity to try one more time.
 
-<div class="document">EXTRACTION SUCCESSFUL: SUBJECT 47 RECOVERED</div>
-<div class="document">ENTITY STATUS: DESTABILIZING</div>`,
-                choices: [
-                    { text: "Complete the transfer and escape", action: () => { changeSanity(20); goToScene(11); }, class: "critical" }
-                ]
-            },
+<div class="document">EXTRACTION SUCCESSFUL — SUBJECT 47: RECOVERED</div>
+<div class="document">ENTITY STATUS: DESTABILIZING — CASCADE FAILURE IMMINENT</div>`,
+        choices: [
+            { text: "Grab Whiskers and run — the chamber is collapsing", action: () => { changeSanity(20); goToScene(13); }, class: "critical" }
+        ]
+    },
 
-            // Scene 10.5: Your sacrifice
-            {
-                location: "LOCATION: ENTITY CHAMBER - ALTERNATE PATH",
-                danger: true,
-                text: `"No."
+    // Scene 12b: Your sacrifice path — with Grimlock
+    '12b': {
+        location: "LOCATION: ENTITY CHAMBER — ALTERNATE PATH",
+        danger: true,
+        text: `"No."
 
 The word leaves your mouth before you realize you've spoken.
 
 "Whiskers, you've suffered enough. All of you have." You take the disruptor from Mortis. "This is my sister. My fight. My risk."
 
-Whiskers tries to protest, but you're already moving.
+Grimlock steps forward. "Then I walk with you. No arguments."
 
-The entity senses you coming. Tendrils whip toward you—you dodge one, duck another, feel a third graze your shoulder hard enough to draw blood.
+There's no time to argue. You and Grimlock charge together.
 
-But you keep moving.
+The entity senses you. Tendrils whip toward you — Grimlock catches one mid-strike and rips it apart. You dodge another, duck a third, feel a fourth graze your shoulder hard enough to draw blood. Pain explodes through your arm.
 
-Emma's face is right there. So close.
+But you keep moving. Fear can't touch you anymore. Not here. Not now.
+
+Emma's face is right there. So close. After three years. After everything.
+
+Grimlock plants himself between you and the entity's defenses. "DO IT!" he roars, holding back a wall of tendrils with his bare hands, muscles screaming.
 
 "I'm here," you whisper. "I'm here, Emma. I found you."
 
 You slam the disruptor against the entity's core and activate it.
 
-The world explodes into white.
+The world explodes.
 
-For a moment—an eternity—you're inside the entity. You feel everything it feels. Every absorbed soul. Every year of agony. Grimlock's last thoughts of hope. The patients who never gave up.
+For a moment — an eternity — you're inside the entity. You feel everything. Every absorbed soul. Every year of agony. Patients who kept faith even in the darkest cells.
 
-And Emma. Reaching out to you through the chaos.
+And Emma. Reaching out to you through the chaos. Her hand in yours, warm and real and alive.
 
-Then hands are pulling you back. Whiskers and Mortis, dragging you free as the entity collapses in on itself.
+Then hands pulling you back. Grimlock, Whiskers, and Mortis, dragging you free as everything collapses.
 
-You fall to the ground, gasping. But in your hand, you feel something warm.
+You fall to the ground, gasping, bleeding. But in your hand, you feel warmth.
 
-Emma's consciousness, safely extracted. Saved.
+Emma. Safe.
 
-<div class="document">EXTRACTION SUCCESSFUL: SUBJECT 47 RECOVERED</div>
-<div class="document">INVESTIGATOR STATUS: INJURED BUT STABLE</div>`,
-                choices: [
-                    { text: "Escape the collapsing asylum", action: () => { changeSanity(-10); goToScene(11); }, class: "critical" }
-                ]
-            },
+<div class="document">EXTRACTION SUCCESSFUL — SUBJECT 47: RECOVERED</div>
+<div class="document">INVESTIGATOR STATUS: INJURED BUT TRIUMPHANT</div>`,
+        choices: [
+            { text: "Escape the collapsing asylum", action: () => { Achievements.unlock('hero'); changeSanity(-5); goToScene(13); }, class: "critical" }
+        ]
+    },
 
-            // Scene 11: The Escape
-            {
-                location: "LOCATION: ASYLUM COLLAPSE",
-                danger: true,
-                text: `<div class="warning">STRUCTURAL FAILURE IMMINENT</div>
+    // Scene 13: The Escape
+    13: {
+        location: "LOCATION: ASYLUM COLLAPSE",
+        danger: true,
+        text: `<div class="warning">STRUCTURAL FAILURE IMMINENT</div>
 
 The asylum is dying.
 
-Without the entity to sustain it, decades of impossible architecture begin to fail. Walls crack. Ceilings buckle. The ground itself seems to groan in relief.
+Without the entity to sustain it, decades of impossible architecture begin to fail. Walls crack like eggshells. Ceilings buckle. The ground groans in what sounds almost like relief.
 
-Mortis's skeletal form begins to glow from within.
+Mortis's skeletal form begins to glow from within. A warm, golden light — nothing like the cold fluorescence of the laboratory.
 
-"My time is done." His voice is peaceful now. Free of the pain that had defined his existence. "The souls are released. My purpose is fulfilled."
+"My time is done." His voice is peaceful now. Free of pain for the first time in forty-three years. "The souls are released. My purpose is fulfilled."
 
 "Mortis—"
 
-"Go. Take your sister. Take Whiskers. Live the life that was stolen from us."
+"Go. Take your sister. Take Whiskers. Take Grimlock. Live the life that was stolen from us." He pauses. "And tell people. Tell them what happened in this place. Don't let it be forgotten."
 
-He raises one skeletal hand in farewell. Then the light consumes him, and he's gone.
+He raises one skeletal hand in farewell.
 
-Whiskers grabs your hand.
+Then the light takes him, and Mortis is finally free.
 
-"We need to MOVE."
+"MOVE!" Grimlock roars.
 
-You run. Through collapsing corridors. Past the remains of Project Ouroboros, dissolving into nothing. Up stairs that crumble behind you.
+He scoops Whiskers under one arm like the meerkat weighs nothing. You carry the extraction matrix — Emma's consciousness pulsing warm against your chest.
 
-The exit appears—a door you've never seen, blown open by the structural chaos.
+You run. Through collapsing corridors. Past the remains of Project Ouroboros, dissolving into nothing. Up stairs that crumble behind you like the building is chasing you.
 
-You burst through into cold night air just as Hollow Creek Asylum collapses behind you in a thunderous roar of dust and stone and finally—finally—silence.
+A wall of rubble blocks the exit. Without breaking stride, Grimlock lowers his shoulder and SMASHES through it like a battering ram, stone and mortar exploding outward.
 
-You're outside.
+A door appears — blown open by the chaos.
 
-You're alive.
+You burst through into cold night air just as Hollow Creek Asylum folds in on itself behind you. A thunderous roar of dust and stone and decades of horror, collapsing into rubble.
 
-In your arms, you hold Emma's consciousness, safe in the extraction matrix. She can be restored. She WILL be restored.
+Then silence.
 
-And beside you stands Whiskers. No longer a victim. A survivor. A hero.
+Real silence. Not the oppressive silence of the asylum. The clean, honest silence of a February night.
 
-<div class="document">INVESTIGATION COMPLETE | SUBJECT 47: RECOVERED | HOLLOW CREEK: DESTROYED</div>`,
-                choices: [
-                    { text: "Turn off the camera and look to the future", action: () => goToScene(12) }
-                ]
-            },
+You're outside. You're alive. ALL of you.
 
-            // Scene 12: Epilogue
-            {
-                location: "[RECORDING STOPPED]",
-                calm: true,
-                text: `Dawn breaks over the ruins.
+In your arms, the extraction matrix holding Emma's consciousness pulses gently with warm light.
+
+And beside you stand Grimlock and Whiskers. Battered. Bleeding. Exhausted.
+
+Alive.
+
+Three people who walked into hell together and walked out the other side. Not victims. Survivors. Heroes. A family forged in darkness.
+
+<div class="document">INVESTIGATION COMPLETE | SUBJECT 47: RECOVERED | ALL ALLIES: SURVIVED | HOLLOW CREEK ASYLUM: DESTROYED</div>`,
+        choices: [
+            { text: "Turn off the camera. It's over.", action: () => goToScene(14) }
+        ]
+    },
+
+    // Scene 14: Epilogue
+    14: {
+        location: "[RECORDING STOPPED]",
+        calm: true,
+        text: `Dawn breaks over the ruins.
 
 The first light in years to touch this ground without the asylum's shadow.
 
-You sit in the grass, the extraction matrix cradled in your lap like the precious thing it is. Whiskers sits beside you, watching the sunrise with eyes that have seen too much darkness.
+You sit in the grass, the extraction matrix cradled in your lap. It pulses gently — a heartbeat of light. Emma's heartbeat.
 
-Sirens in the distance. Emergency services, responding to the seismic activity.
+Grimlock sits beside you, massive arms resting on his knees, watching the sunrise with scarred eyes that have finally found peace. The wounds from the Ouroboros and the entity are already beginning to heal.
 
-Let them come. Let them find the ruins. Let them discover what happened here.
+Whiskers perches on a fallen stone, watching the horizon with eyes that have seen too much darkness but now reflect only light.
 
-You have the footage. Every second of horror. Every crime. Every victim.
+Sirens in the distance. Emergency services, responding to the seismic disturbance.
+
+Let them come. Let them find the ruins. Let them discover the truth.
+
+You have the footage. Every second. Every horror. Every crime.
 
 The world will know.
 
-Whiskers speaks first.
+Grimlock speaks first, his voice rumbling like distant thunder.
 
-"What happens now? To me, I mean."
+"What happens now? To us?"
 
-You look at this small creature who crossed through hell at your side. Who found courage when it mattered most.
+You look at them both. These two extraordinary beings who crossed through hell at your side. Who fought when running was easier. Who chose courage when fear was all they'd ever known.
 
-"You come with me." You manage something like a smile. "Emma's going to need time to recover. She'll need people around her who understand what she went through. Who can help her heal."
+"You come with me." You manage something like a smile — the first in a long time. "Both of you. Emma's going to need time to recover. She'll need people who understand."
 
-"And you trust me? A monster?"
+"And you trust us? Monsters?" Whiskers asks quietly.
 
-"You're not a monster, Whiskers." You reach out and rest a hand on his shoulder. "You're a hero. Grimlock knew it. Mortis knew it. Now I know it too."
+"You're not monsters." Your voice is strong. When did you become this person? When did the frightened investigator with a camera become someone who stared down gods? "You're heroes. You're family."
 
-The meerkat's eyes glisten. He nods.
+Grimlock's scarred face breaks into something no one has ever seen on a troll's face before — a genuine smile.
 
-Together, you walk toward the rising sun.
+Whiskers' eyes glisten. He nods.
 
-<div style="text-align: center; margin-top: 30px; font-size: 1.3em; color: #0ff;">
+Together, the three of you walk toward the rising sun.
+
+<div style="text-align:center;margin-top:30px;font-size:1.3em;color:var(--info-cyan);">
 ━━━━━━━━━━━━━━━━━━━━━━<br>
-[INVESTIGATION COMPLETE]<br>
+[ INVESTIGATION COMPLETE ]<br>
 ━━━━━━━━━━━━━━━━━━━━━━<br><br>
-📹 Recording Time: ${Math.floor(gameState.time / 60)} min<br>
-🔋 Final Battery: ${Math.floor(gameState.battery)}%<br>
-🧠 Final Sanity: ${Math.floor(gameState.sanity)}%<br>
-💀 Allies Lost: 1 (Grimlock)<br>
-✨ Allies Saved: 1 (Whiskers)<br>
+📹 Recording Time: <span id="statTime">0</span> min<br>
+🔋 Final Battery: <span id="statBatt">0</span>%<br>
+🧠 Final Sanity: <span id="statSanity">0</span>%<br>
+💀 Allies Lost: 0<br>
+✨ Allies Saved: 2 (Grimlock & Whiskers)<br>
 ❤️ Sister: RECOVERED<br>
-🏆 Mission: SUCCESS
+🏆 Mission: PERFECT SUCCESS
 </div>`,
-                choices: [
-                    { text: "VIEW FINAL REPORT", action: () => goToScene(13) },
-                    { text: "START NEW INVESTIGATION", action: () => restartGame(), class: "restart" }
-                ]
-            },
+        choices: [
+            { text: "VIEW FINAL REPORT — SIX MONTHS LATER", action: () => goToScene(15) },
+            { text: "START NEW INVESTIGATION", action: () => restartGame(), class: "restart" }
+        ]
+    },
 
-            // Scene 13: Six Months Later
-            {
-                location: "SIX MONTHS LATER - NEWS ARCHIVE",
-                calm: true,
-                text: `<div class="document">BREAKING NEWS REPORT</div>
-
-The anchor's voice fills the screen:
+    // Scene 15: Six Months Later
+    15: {
+        location: "SIX MONTHS LATER — NEWS ARCHIVE",
+        calm: true,
+        text: `<div class="document">BREAKING NEWS — GLOBAL BROADCAST</div>
 
 "Tonight, we bring you the conclusion of what authorities are calling the most disturbing case of medical malpractice in modern history.
 
-Hollow Creek Psychiatric Facility, once a respected treatment center, has been revealed as the site of decades of illegal human experimentation. Dr. Marcus Mortimer, who disappeared three years ago, has been posthumously charged with over two hundred counts of unlawful genetic modification, involuntary confinement, and murder.
+Hollow Creek Psychiatric Facility, once a respected treatment center, has been revealed as the site of decades of illegal human experimentation. Dr. Marcus Mortimer, who disappeared three years ago, has been posthumously charged with two hundred and seventeen counts of unlawful genetic modification, involuntary confinement, and first-degree murder.
 
-The evidence came from an unlikely source—video footage captured by an anonymous investigator who entered the facility searching for a missing relative.
+The evidence came from an unlikely source — video footage captured by an anonymous investigator who entered the facility searching for a missing relative.
 
-Emma Rodriguez, classified as 'Subject 47' in Mortimer's files, has been successfully recovered through experimental consciousness transfer technology. Medical experts describe her recovery as 'miraculous.'
+Emma Rodriguez, classified as 'Subject 47' in Mortimer's files, has been successfully recovered. Medical experts describe her restoration as 'unprecedented.'
 
-Perhaps most remarkably, one of Mortimer's victims—a genetically modified individual known only as 'Whiskers'—has become a public advocate for survivors' rights.
+Perhaps most remarkably, two of Mortimer's victims — genetically modified individuals known as 'Grimlock' and 'Whiskers' — have not only survived, but thrived. Both have become powerful advocates for survivors' rights.
 
-And tonight, we remember those who didn't survive. Including one known only as 'Grimlock,' who witnesses say sacrificed himself to save others during the facility's collapse."
+Grimlock, once designated Patient #089, now works with rehabilitation centers worldwide, using his extraordinary strength to tear down barriers — both literal and figurative — for victims of institutional abuse. His testimony before the United Nations brought the chamber to tears.
 
-The segment ends. The screen fades to black.
+Whiskers, Patient #112, has become a public speaker and bestselling author, his memoir 'No More Hiding' inspiring millions.
 
-Justice, finally.
+And the investigator who brought them all home? Sources say they've changed too. Colleagues describe someone transformed by the experience — stronger, more determined, driven by an unshakeable conviction that no one should ever be left behind.
 
-<div class="document">CASE STATUS: CLOSED | VICTIMS: IDENTIFIED | FACILITY: DEMOLISHED</div>`,
-                choices: [
-                    { text: "Continue to final chapter", action: () => goToScene(14) }
-                ]
-            },
+Together, the three of them have established the Hollow Creek Foundation, dedicated to ensuring nothing like this ever happens again."
 
-            // Scene 14: One Year Later
-            {
-                location: "ONE YEAR LATER - YOUR APARTMENT",
-                calm: true,
-                text: `The footage plays on your monitor for the last time.
+The anchor smiles — something rare in this kind of reporting.
+
+"Heroes, by any measure."
+
+<div class="document">CASE STATUS: CLOSED | ALL VICTIMS IDENTIFIED | ALL ALLIES SURVIVED | FACILITY: DEMOLISHED | FOUNDATION: ESTABLISHED</div>`,
+        choices: [
+            { text: "Continue — one year later", action: () => goToScene(16) }
+        ]
+    },
+
+    // Scene 16: One Year Later
+    16: {
+        location: "ONE YEAR LATER — YOUR APARTMENT",
+        calm: true,
+        text: `The footage plays on your monitor one last time.
 
 Green-tinted corridors. Grimlock's face. The entity's death throes. Emma, emerging from the nightmare.
 
 You close the file. Archive it. Password-protected. Encrypted. Safe.
 
-From the kitchen, you hear Emma singing softly as she makes coffee. She does that now—sings. Something she'd stopped doing years before she disappeared. The doctors say the mind heals in its own time. Hers chose music.
+From the kitchen, you hear Emma singing softly as she makes coffee. She does that now — sings. Something she'd stopped doing years before she disappeared. The doctors say the mind heals in its own time. Hers chose music.
 
-A knock at the door.
+A knock at the door. Then a louder knock — more of a thud, really. There's only one person who knocks like that.
 
-Whiskers lets himself in, a bakery bag tucked under one arm. He's changed too—dresses in tailored suits now, speaks at conferences, fights for the rights of people like him. The media calls him an inspiration. He calls himself lucky.
+Grimlock ducks through the doorframe, a bakery bag tucked under one arm, Whiskers perched on his shoulder like it's the most natural thing in the world.
 
-"Brought breakfast," he announces, setting the bag on the counter. "Those chocolate croissants Emma likes."
+"Brought breakfast," Whiskers announces, hopping down with a flourish. "Those chocolate croissants Emma likes."
 
-Emma's face lights up. She hugs him—this strange, small creature who walked through hell with her brother.
+"And those cinnamon rolls you pretend you don't like," Grimlock adds, setting a second bag on the counter with surprising gentleness for hands that once tore through a monster.
 
-You watch them together. Your sister, alive. Your friend, at peace.
+Emma's face lights up. She hugs them both — the massive troll who punched a god, and the small meerkat who carried the weapon that saved her soul. Her family. Forged not in blood, but in fire and darkness and the refusal to give up.
+
+You watch them together. Your sister, alive and singing. Your friends, at peace and changing the world. 
+
+You've changed too. You can feel it in the way you carry yourself. The investigator who trembled in the asylum's doorway is gone. In their place stands someone who knows — truly knows — that courage isn't the absence of fear. It's grabbing a steel pipe and fighting beside a troll against a nightmare.
 
 The camera sits on a shelf now, gathering dust. You'll never forget what it recorded. But you've made peace with it.
 
@@ -2020,192 +2428,297 @@ Some stories get happy endings.
 
 This one does.
 
-<div style="text-align: center; margin-top: 30px; font-size: 1.4em; color: #0f0;">
+<div style="text-align:center;margin-top:30px;font-size:1.4em;color:var(--nv-green);">
 ━━━━━━━━━━━━━━━━━━━━━━<br>
-[END OF RECORDING]<br>
-[THE END]<br>
+[ END OF RECORDING ]<br>
+[ THE END ]<br>
 ━━━━━━━━━━━━━━━━━━━━━━
 </div>`,
-                choices: [
-                    { text: "ROLL CREDITS", action: () => goToScene(15) },
-                    { text: "START NEW INVESTIGATION", action: () => restartGame(), class: "restart" }
-                ]
-            },
+        choices: [
+            { text: "ROLL CREDITS", action: () => goToScene(17) },
+            { text: "START NEW INVESTIGATION", action: () => restartGame(), class: "restart" }
+        ]
+    },
 
-            // Scene 15: Credits
-            {
-                location: "═══════════════════════════════",
-                calm: true,
-                text: `<div style="text-align: center; line-height: 2.2;">
+    // Scene 17: Credits
+    17: {
+        location: "═══════════════════════════════",
+        calm: true,
+        text: `<div style="text-align:center;line-height:2.2;">
 
-<div style="font-size: 2.2em; color: #0f0; text-shadow: 0 0 20px #0f0; margin-bottom: 20px;">
+<div style="font-size:2.2em;color:var(--nv-green);text-shadow:0 0 20px var(--nv-green);margin-bottom:20px;">
 HOLLOW CREEK ASYLUM
 </div>
-<div style="color: #0a0; margin-bottom: 25px;">
-[THE NIGHT VISION FILES]
+<div style="color:var(--nv-dark);margin-bottom:25px;">
+[ THE NIGHT VISION FILES — V2 ]
 </div>
 
 ━━━━━━━━━━━━━━━━━━━━━━<br>
-<span style="color: #ff0;">🎂 SPECIAL DEDICATION 🎂</span><br>
+<span style="color:#ff0;">🎂 SPECIAL DEDICATION 🎂</span><br>
 ━━━━━━━━━━━━━━━━━━━━━━<br><br>
 
-<div style="background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,0,255,0.2)); padding: 20px; border-radius: 15px; border: 2px solid #ff0; margin: 20px 0;">
-<span style="font-size: 1.8em; color: #ff0;">🎉 HAPPY BIRTHDAY VC! 🎉</span><br><br>
+<div style="background:linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,0,255,0.15));padding:20px;border-radius:12px;border:2px solid #ff0;margin:20px 0;">
+<span style="font-size:1.8em;color:#ff0;">🎉 HAPPY BIRTHDAY VC! 🎉</span><br><br>
 
-<div style="text-align: left; background: rgba(0,0,0,0.4); padding: 25px; border-radius: 10px; border: 1px solid #0ff; margin: 15px 0;">
-<span style="color: #fff; font-size: 1.1em; line-height: 1.8; font-style: italic;">
-"I tried something to make you happy VC. All these years you made me happy, you showed me unconditional love towards me. You never treated me as your friend's friend - I'm really happy to get you as my friend. 
+<div style="text-align:left;background:rgba(0,0,0,0.5);padding:25px;border-radius:8px;border:1px solid var(--info-cyan);margin:15px 0;">
+<span style="color:#fff;font-size:1.05em;line-height:1.9;font-style:italic;">
+"I tried something to make you happy VC. All these years you made me happy, you showed me unconditional love towards me. You never treated me as your friend's friend — I'm really happy to get you as my friend.
 <br><br>
 It's always you who put efforts, it's always you who come for me even in Nellore or to Japan. I'm really feeling so lucky to get a friend like this. You made me happy and proud.
 <br><br>
 I will try to do the same thing too."
 </span>
 <br><br>
-<span style="color: #ff0; text-align: right; display: block; font-family: 'Cinzel', serif;">— Your Best Friend 💜</span>
+<span style="color:#ff0;text-align:right;display:block;">— Your Best Friend 💜</span>
 </div>
 
-<span style="color: #fff; font-size: 1.1em;">May your year be filled with<br>adventure, joy, and all the<br>happiness you deserve!</span><br><br>
-<span style="font-size: 2em;">🎈🎁🎊🌟🎈</span><br><br>
-<span style="color: #0ff;">This game is dedicated to you,<br>on your special day!</span>
+<span style="color:#fff;font-size:1.05em;">May your year be filled with<br>adventure, joy, and all the<br>happiness you deserve!</span><br><br>
+<span style="font-size:2em;">🎈🎁🎊🌟🎈</span><br><br>
+<span style="color:var(--info-cyan);">This game is dedicated to you,<br>on your special day!</span>
 </div>
 
 ━━━━━━━━━━━━━━━━━━━━━━<br>
-<span style="color: #0ff;">CREATED BY</span><br>
+<span style="color:var(--info-cyan);">CREATED BY</span><br>
 ━━━━━━━━━━━━━━━━━━━━━━<br><br>
 
 Game Concept & Story<br>
-<span style="color: #0f0;">YOUR ORIGINAL VISION</span><br><br>
-
+<span style="color:var(--nv-green);">YOUR ORIGINAL VISION</span><br><br>
 Inspired By<br>
-<span style="color: #0f0;">OUTLAST (RED BARRELS)</span><br><br>
+<span style="color:var(--nv-green);">OUTLAST (RED BARRELS)</span><br><br>
 
 ━━━━━━━━━━━━━━━━━━━━━━<br>
-<span style="color: #0ff;">MAIN CHARACTERS</span><br>
+<span style="color:var(--info-cyan);">CHARACTERS</span><br>
 ━━━━━━━━━━━━━━━━━━━━━━<br><br>
 
-📹 The Investigator - YOU<br>
-👩 Subject 47 / Emma - YOUR SISTER<br>
-🧌 Patient #089 / Grimlock - <span style="color: #f00;">HERO</span><br>
-🦦 Patient #112 / Whiskers - SURVIVOR<br>
-💀 Mortis - REDEEMED<br><br>
+📹 The Investigator — YOU<br>
+👩 Subject 47 / Emma — YOUR SISTER<br>
+🧌 Patient #089 / Grimlock — <span style="color:var(--danger-red);">FALLEN HERO</span><br>
+🦦 Patient #112 / Whiskers — SURVIVOR<br>
+💀 Mortis — REDEEMED<br><br>
 
 ━━━━━━━━━━━━━━━━━━━━━━<br>
-<span style="color: #0ff;">YOUR STATS</span><br>
+<span style="color:var(--info-cyan);">YOUR STATS</span><br>
 ━━━━━━━━━━━━━━━━━━━━━━<br><br>
 
-Recording Time: ${Math.floor(gameState.time / 60)} min<br>
-Battery Used: ${100 - Math.floor(gameState.battery)}%<br>
-Sanity Lost: ${100 - Math.floor(gameState.sanity)}%<br>
-Documents Found: ${gameState.inventory.length}<br><br>
+Recording Time: <span id="creditTime">0</span> min<br>
+Battery Remaining: <span id="creditBatt">0</span>%<br>
+Sanity Remaining: <span id="creditSanity">0</span>%<br>
+Items Found: <span id="creditItems">0</span><br>
+Scare Events: <span id="creditScares">0</span><br><br>
 
 ━━━━━━━━━━━━━━━━━━━━━━<br>
-<span style="color: #0ff;">IN MEMORY OF</span><br>
+<span style="color:var(--info-cyan);">IN MEMORY OF</span><br>
 ━━━━━━━━━━━━━━━━━━━━━━<br><br>
 
-<span style="color: #0f0; font-size: 1.2em;">GRIMLOCK</span><br>
-<span style="font-style: italic; color: #0a0;">
+<span style="color:var(--nv-green);font-size:1.2em;">GRIMLOCK</span><br>
+<span style="font-style:italic;color:var(--nv-dark);">
 "Some heroes aren't born.<br>They're made in the moment<br>that matters most."
 </span><br><br>
 
-━━━━━━━━━━━━━━━━━━━━━━<br><br>
-
-<span style="font-size: 1.1em; color: #0ff;">
-Thank you for playing<br>
-HOLLOW CREEK ASYLUM
+<span style="color:var(--nv-green);font-size:1.2em;">MORTIS</span><br>
+<span style="font-style:italic;color:var(--nv-dark);">
+"Forty-three years of penance.<br>Not a single day wasted."
 </span><br><br>
 
-<span style="color: #ff0;">And once again...<br>HAPPY BIRTHDAY VC! 🎂</span>
+━━━━━━━━━━━━━━━━━━━━━━<br><br>
+
+<span style="font-size:1.1em;color:var(--info-cyan);">
+Thank you for playing<br>
+HOLLOW CREEK ASYLUM V2
+</span><br><br>
+
+<span style="color:#ff0;">And once again...<br>HAPPY BIRTHDAY VC! 🎂</span>
 
 </div>`,
-                choices: [
-                    { text: "RETURN TO MAIN MENU", action: () => restartGame(), class: "restart" }
-                ]
-            }
-        ];
+        choices: [
+            { text: "RETURN TO MAIN MENU", action: () => restartGame(), class: "restart" }
+        ]
+    }
+};
 
-        function goToScene(sceneNum) {
-            // Handle decimal scene numbers for branching
-            const sceneIndex = Math.floor(sceneNum);
-            const isAltScene = sceneNum !== sceneIndex;
-            
-            let scene;
-            if (isAltScene) {
-                // Map decimal scenes to their correct positions in the array
-                if (sceneNum === 2.5) scene = scenes[3];      // Scene 2.5 maps to array index 3
-                else if (sceneNum === 2.6) scene = scenes[4]; // Scene 2.6 maps to array index 4
-                else if (sceneNum === 10.5) scene = scenes[13]; // Scene 10.5 maps to array index 13
-                else scene = scenes[sceneIndex];
+// ============== SCENE NAVIGATION ==============
+function goToScene(sceneId) {
+    const scene = scenes[sceneId];
+    if (!scene) {
+        console.error(`Scene "${sceneId}" not found!`);
+        return;
+    }
+
+    gameState.scene = sceneId;
+    gameState.choicesMade.push(sceneId);
+
+    // Audio transitions
+    if (scene.danger) SynthAudio.switchToSudden();
+    else if (scene.calm) { SynthAudio.switchToNormal(); SynthAudio.stopHeartbeat(); showFearIndicator(false); }
+
+    showScene(scene);
+
+    // Update epilogue stats
+    setTimeout(() => {
+        const statEls = ['statTime', 'creditTime'];
+        statEls.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = Math.floor(gameState.time / 60); });
+        ['statBatt', 'creditBatt'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = Math.floor(gameState.battery); });
+        ['statSanity', 'creditSanity'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = Math.floor(gameState.sanity); });
+        const creditItems = document.getElementById('creditItems'); if (creditItems) creditItems.textContent = gameState.inventory.length;
+        const creditScares = document.getElementById('creditScares'); if (creditScares) creditScares.textContent = gameState.scareCount;
+    }, 500);
+
+    // Check achievements
+    if (sceneId === 14 || sceneId === 15 || sceneId === 16 || sceneId === 17) {
+        Achievements.unlock('survivor');
+        if (gameState.time < 300) Achievements.unlock('speed_run');
+        if (gameState.battery >= 50) Achievements.unlock('full_battery');
+        if (gameState.sanity >= 60) Achievements.unlock('iron_mind');
+    }
+}
+
+function restartGame() {
+    gameState.scene = 0;
+    gameState.battery = 100;
+    gameState.sanity = 100;
+    gameState.inventory = [];
+    gameState.companions = { grimlock: false, whiskers: false, mortis: false };
+    gameState.time = 0;
+    gameState.isTyping = false;
+    gameState.choicesMade = [];
+    gameState.puzzleSolved = false;
+    gameState.scareCount = 0;
+
+    document.body.classList.remove('low-sanity', 'critical-sanity', 'chromatic-active');
+    showFearIndicator(false);
+    SynthAudio.stopHeartbeat();
+
+    updateBattery();
+    updateSanity();
+    updateInventory();
+
+    SynthAudio.switchToNormal();
+    goToScene(0);
+    startBatteryDrain();
+    startTime();
+    startScareEvents();
+
+    SaveSystem.clear();
+}
+
+// ============== BOOT SEQUENCE ==============
+function runBootSequence() {
+    const bootLines = [
+        { text: 'BIOS CHECK............... OK', cls: 'ok', delay: 200 },
+        { text: 'MEMORY: 640K ............. OK', cls: 'ok', delay: 400 },
+        { text: 'CAMERA MODULE ........... OK', cls: 'ok', delay: 600 },
+        { text: 'NIGHT VISION IR ......... OK', cls: 'ok', delay: 800 },
+        { text: 'AUDIO CAPTURE ........... OK', cls: 'ok', delay: 1000 },
+        { text: 'GPS SIGNAL .............. LOST', cls: 'warn', delay: 1200 },
+        { text: 'CELLULAR SIGNAL ......... NONE', cls: 'err', delay: 1400 },
+        { text: 'BATTERY ................. 100%', cls: 'ok', delay: 1600 },
+        { text: 'SANITY MODULE ........... ACTIVE', cls: 'ok', delay: 1800 },
+        { text: 'RECORDING ............... STARTING', cls: 'ok', delay: 2200 },
+    ];
+
+    const container = document.getElementById('bootSequence');
+    bootLines.forEach(line => {
+        setTimeout(() => {
+            const div = document.createElement('div');
+            div.className = `boot-line ${line.cls}`;
+            div.textContent = line.text;
+            div.style.animationDelay = '0s';
+            container.appendChild(div);
+        }, line.delay);
+    });
+}
+
+// ============== KEYBOARD SHORTCUTS ==============
+document.addEventListener('keydown', (e) => {
+    // 1-4: Select choices
+    if (e.key >= '1' && e.key <= '4') {
+        const idx = parseInt(e.key) - 1;
+        const choices = document.querySelectorAll('.choice');
+        if (choices[idx] && !choices[idx].classList.contains('disabled')) {
+            choices[idx].click();
+        }
+    }
+    // Space: Skip typewriter
+    if (e.key === ' ' && gameState.isTyping) {
+        e.preventDefault();
+        skipTypewriter();
+    }
+    // S: Quick save
+    if (e.key === 's' && !e.ctrlKey) {
+        SaveSystem.save();
+    }
+});
+
+// ============== INITIALIZATION ==============
+window.addEventListener('load', () => {
+    // Init systems
+    SynthAudio.init();
+    Particles.init();
+
+    // Boot sequence
+    runBootSequence();
+
+    // Settings panel
+    document.getElementById('openSettings').addEventListener('click', () => {
+        document.getElementById('settingsPanel').classList.toggle('open');
+    });
+    document.getElementById('closeSettings').addEventListener('click', () => {
+        document.getElementById('settingsPanel').classList.remove('open');
+    });
+    document.getElementById('volMaster').addEventListener('input', (e) => {
+        SynthAudio.setMasterVolume(e.target.value / 100);
+    });
+    document.getElementById('volMusic').addEventListener('input', (e) => {
+        SynthAudio.setMusicVolume(e.target.value / 100);
+    });
+    document.getElementById('volSFX').addEventListener('input', (e) => {
+        SynthAudio.setSFXVolume(e.target.value / 100);
+    });
+    document.getElementById('textSpeed').addEventListener('input', (e) => {
+        gameState.textSpeed = 65 - parseInt(e.target.value);
+    });
+
+    // Audio & save controls
+    document.getElementById('toggleMusic').addEventListener('click', () => SynthAudio.toggleMusic());
+    document.getElementById('toggleSFX').addEventListener('click', () => SynthAudio.toggleSFX());
+    document.getElementById('saveBtn').addEventListener('click', () => SaveSystem.save());
+
+    // Click to skip typewriter
+    document.addEventListener('click', (e) => {
+        if (gameState.isTyping &&
+            !e.target.classList.contains('choice') &&
+            !e.target.classList.contains('ctrl-btn') &&
+            !e.target.classList.contains('keypad-btn') &&
+            !e.target.closest('.settings-panel')) {
+            skipTypewriter();
+        }
+    });
+
+    // Start game after boot sequence
+    setTimeout(() => {
+        document.getElementById('loadingScreen').classList.add('hidden');
+
+        // Check for saved game
+        if (SaveSystem.hasSave()) {
+            const loaded = SaveSystem.load();
+            if (loaded) {
+                updateBattery();
+                updateSanity();
+                updateInventory();
+                goToScene(gameState.scene);
             } else {
-                // For regular scenes, adjust for the branch scenes in the array
-                if (sceneNum <= 2) {
-                    scene = scenes[sceneNum];          // Scenes 0, 1, 2 are at indices 0, 1, 2
-                } else if (sceneNum <= 10) {
-                    scene = scenes[sceneNum + 2];      // Scenes 3-10 are at indices 5-12 (skip 2.5 and 2.6)
-                } else {
-                    scene = scenes[sceneNum + 3];      // Scenes 11+ are shifted by 3 (includes 10.5)
-                }
-            }
-            
-            // Handle audio based on scene type
-            if (scene && scene.danger) {
-                AudioManager.switchToSudden();
-            } else if (scene && scene.calm) {
-                AudioManager.switchToNormal();
-            }
-            
-            // Safety check
-            if (!scene) {
-                console.error(`Scene ${sceneNum} not found! Total scenes: ${scenes.length}`);
-                return;
-            }
-            
-            console.log(`Loading scene ${sceneNum}: ${scene.location || 'Unknown Location'}`);
-            
-            gameState.scene = sceneNum;
-            showScene(scene);
-        }
-
-        function restartGame() {
-            gameState.scene = 0;
-            gameState.battery = 100;
-            gameState.sanity = 100;
-            gameState.inventory = [];
-            gameState.companions = { grimlock: false, whiskers: false, mortis: false };
-            gameState.time = 0;
-            
-            document.body.classList.remove('low-sanity', 'critical-sanity');
-            
-            updateBattery();
-            updateSanity();
-            updateInventory();
-            
-            AudioManager.switchToNormal();
-            
-            goToScene(0);
-            startBatteryDrain();
-            startTime();
-        }
-
-        // ============== INITIALIZATION ==============
-        window.addEventListener('load', () => {
-            AudioManager.init();
-            
-            // Click anywhere to skip typewriter
-            document.addEventListener('click', (e) => {
-                if (gameState.isTyping && !e.target.classList.contains('choice') && !e.target.classList.contains('audio-btn')) {
-                    skipTypewriter();
-                }
-            });
-            
-            // Start game after loading
-            setTimeout(() => {
-                document.getElementById('loadingScreen').classList.add('hidden');
-                AudioManager.playBgMusic();
                 goToScene(0);
-                startBatteryDrain();
-                startTime();
-            }, 2800);
-        });
-    </script>
+            }
+        } else {
+            goToScene(0);
+        }
+
+        SynthAudio.startDrone('normal');
+        startBatteryDrain();
+        startTime();
+        startScareEvents();
+    }, 3500);
+});
+</script>
 </body>
 </html>
