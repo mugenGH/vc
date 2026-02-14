@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HOLLOW CREEK ASYLUM - [REC]</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&family=Creepster&family=Courier+Prime:wght@400;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier Prime', monospace;
+            background: #000;
+            color: #0f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+            cursor: crosshair;
+        }
+
+        body.no-vision {
+            background: #000;
+        }
+
+        /* Camera HUD */
+        .hud {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+            font-family: 'VT323', monospace;
+        }
+
+        .hud-top {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            color: #0f0;
+            font-size: 1.2em;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        .recording {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rec-dot {
+            width: 12px;
+            height: 12px;
+            background: #f00;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .battery {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .battery-bar {
+            width: 100px;
+            height: 20px;
+            border: 2px solid #0f0;
+            position: relative;
+            box-shadow: 0 0 10px #0f0;
+        }
+
+        .battery-fill {
+            height: 100%;
+            background: #0f0;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px #0f0;
+        }
+
+        .battery-fill.low {
+            background: #ff0;
+            animation: batteryWarning 0.5s infinite;
+        }
+
+        .battery-fill.critical {
+            background: #f00;
+            animation: batteryWarning 0.3s infinite;
+        }
+
+        @keyframes batteryWarning {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .sanity {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sanity-bar {
+            width: 100px;
+            height: 20px;
+            border: 2px solid #0f0;
+            position: relative;
+            box-shadow: 0 0 10px #0f0;
+        }
+
+        .sanity-fill {
+            height: 100%;
+            background: #0f0;
+            transition: width 0.3s ease;
+        }
+
+        .sanity-fill.low {
+            background: #ff0;
+        }
+
+        .sanity-fill.critical {
+            background: #f00;
+            animation: batteryWarning 0.3s infinite;
+        }
+
+        /* Timestamp */
+        .timestamp {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 1.2em;
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        /* Camera effects */
+        .camera-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        .camera-overlay::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 20%, rgba(0, 0, 0, 0.9) 100%);
+        }
+
+        .camera-overlay::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 255, 0, 0.03) 0px,
+                transparent 1px,
+                transparent 2px,
+                rgba(0, 255, 0, 0.03) 3px
+            );
+            animation: scanlines 0.1s linear infinite;
+        }
+
+        @keyframes scanlines {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(3px); }
+        }
+
+        .grain {
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            pointer-events: none;
+            z-index: 998;
+            opacity: 0.1;
+            background: repeating-radial-gradient(circle, transparent 0, rgba(0, 255, 0, 0.3) 2px, transparent 3px);
+            animation: grain 0.2s steps(10) infinite;
+        }
+
+        @keyframes grain {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-5%, -5%); }
+            20% { transform: translate(-10%, 5%); }
+            30% { transform: translate(5%, -10%); }
+            40% { transform: translate(-5%, 15%); }
+            50% { transform: translate(-15%, 5%); }
+            60% { transform: translate(15%, 0%); }
+            70% { transform: translate(0%, 15%); }
+            80% { transform: translate(-10%, 10%); }
+            90% { transform: translate(10%, 5%); }
+        }
+
+        /* Game container */
+        .game-container {
+            position: relative;
+            z-index: 2;
+            max-width: 1000px;
+            width: 95%;
+            margin: 40px auto;
+            padding: 30px;
+            background: rgba(0, 20, 0, 0.8);
+            border: 3px solid #0f0;
+            box-shadow: 
+                0 0 30px rgba(0, 255, 0, 0.5),
+                inset 0 0 30px rgba(0, 0, 0, 0.9);
+        }
+
+        /* Title */
+        .title {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .title h1 {
+            font-family: 'Creepster', cursive;
+            font-size: 3em;
+            color: #0f0;
+            text-shadow: 0 0 20px #0f0;
+            letter-spacing: 5px;
+            animation: flicker 3s infinite;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            41%, 43% { opacity: 0.7; }
+            44%, 47% { opacity: 0.9; }
+            48%, 49% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+
+        .subtitle {
+            font-family: 'VT323', monospace;
+            font-size: 1.3em;
+            color: #0a0;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        /* Location indicator */
+        .location {
+            text-align: center;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #0f0;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+
+        /* Character status */
+        .character-status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .character {
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #0f0;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .character::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.1), transparent);
+            animation: sweep 3s infinite;
+        }
+
+        @keyframes sweep {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .character.dead {
+            opacity: 0.3;
+            border-color: #f00;
+            filter: grayscale(1);
+        }
+
+        .character.dead::after {
+            content: '[DECEASED]';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #f00;
+            font-weight: bold;
+            font-size: 1.2em;
+            text-shadow: 0 0 10px #f00;
+        }
+
+        .character-icon {
+            font-size: 3em;
+            display: block;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 10px #0f0);
+        }
+
+        .character-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .character-state {
+            font-size: 0.9em;
+            color: #0a0;
+            font-style: italic;
+        }
+
+        /* Story section */
+        .story-section {
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #0f0;
+            padding: 25px;
+            margin-bottom: 25px;
+            min-height: 300px;
+            position: relative;
+            box-shadow: inset 0 0 30px rgba(0, 255, 0, 0.1);
+        }
+
+        .story-text {
+            font-size: 1.15em;
+            line-height: 1.9;
+            color: #0f0;
+            text-shadow: 0 0 5px #0f0;
+            margin-bottom: 20px;
+        }
+
+        /* Document found effect */
+        .document {
+            background: rgba(0, 50, 0, 0.5);
+            border-left: 4px solid #0f0;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: 'Courier Prime', monospace;
+            font-style: italic;
+            color: #0f0;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+        }
+
+        .document::before {
+            content: '📄 DOCUMENT FOUND';
+            display: block;
+            font-weight: bold;
+            font-style: normal;
+            margin-bottom: 10px;
+            color: #0ff;
+            text-shadow: 0 0 10px #0ff;
+        }
+
+        /* Warning messages */
+        .warning {
+            background: rgba(100, 0, 0, 0.5);
+            border: 2px solid #f00;
+            padding: 15px;
+            margin: 20px 0;
+            color: #f00;
+            text-align: center;
+            font-weight: bold;
+            animation: warningPulse 1s infinite;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+
+        @keyframes warningPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .warning::before {
+            content: '⚠️ ';
+            font-size: 1.5em;
+        }
+
+        /* Choices */
+        .choices {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .choice {
+            background: rgba(0, 50, 0, 0.7);
+            border: 2px solid #0f0;
+            padding: 18px 25px;
+            font-size: 1.1em;
+            font-family: 'Courier Prime', monospace;
+            color: #0f0;
+            text-align: left;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+            text-shadow: 0 0 5px #0f0;
+        }
+
+        .choice::before {
+            content: '> ';
+            color: #0f0;
+            font-weight: bold;
+        }
+
+        .choice:hover {
+            background: rgba(0, 100, 0, 0.9);
+            transform: translateX(10px);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        }
+
+        .choice.dangerous {
+            border-color: #ff0;
+            color: #ff0;
+        }
+
+        .choice.dangerous:hover {
+            background: rgba(100, 100, 0, 0.9);
+            box-shadow: 0 0 20px rgba(255, 255, 0, 0.5);
+        }
+
+        .choice.critical {
+            border-color: #f00;
+            color: #f00;
+            animation: criticalPulse 1s infinite;
+        }
+
+        .choice.critical:hover {
+            background: rgba(100, 0, 0, 0.9);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+
+        @keyframes criticalPulse {
+            0%, 100% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(255, 0, 0, 0.8); }
+        }
+
+        .choice.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            border-color: #555;
+            color: #555;
+        }
+
+        .choice.disabled:hover {
+            transform: none;
+            background: rgba(0, 50, 0, 0.7);
+            box-shadow: none;
+        }
+
+        /* Restart button */
+        .restart {
+            background: rgba(0, 0, 100, 0.7);
+            border-color: #00f;
+            color: #0ff;
+        }
+
+        .restart:hover {
+            background: rgba(0, 0, 150, 0.9);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        /* Quick time events */
+        .qte {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 4px solid #f00;
+            padding: 40px 60px;
+            font-size: 2em;
+            color: #f00;
+            text-align: center;
+            z-index: 2000;
+            animation: qtePulse 0.3s infinite;
+            box-shadow: 0 0 50px rgba(255, 0, 0, 0.8);
+        }
+
+        @keyframes qtePulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        .qte-timer {
+            font-size: 3em;
+            font-weight: bold;
+            margin-top: 20px;
+            animation: countdown 1s infinite;
+        }
+
+        @keyframes countdown {
+            0% { color: #f00; }
+            50% { color: #ff0; }
+            100% { color: #f00; }
+        }
+
+        /* Screen effects */
+        .static-effect {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            background: rgba(255, 255, 255, 0.1);
+            animation: static 0.1s infinite;
+            display: none;
+        }
+
+        .static-effect.active {
+            display: block;
+        }
+
+        @keyframes static {
+            0% { opacity: 0.1; }
+            50% { opacity: 0.2; }
+            100% { opacity: 0.1; }
+        }
+
+        .blood-effect {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            background: radial-gradient(circle, transparent 40%, rgba(255, 0, 0, 0.5) 100%);
+            display: none;
+            animation: bloodPulse 0.5s;
+        }
+
+        .blood-effect.active {
+            display: block;
+        }
+
+        @keyframes bloodPulse {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+
+        /* Inventory */
+        .inventory {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #0f0;
+            flex-wrap: wrap;
+        }
+
+        .inventory-label {
+            color: #0f0;
+            font-weight: bold;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        .item {
+            background: rgba(0, 50, 0, 0.7);
+            border: 1px solid #0f0;
+            padding: 8px 15px;
+            font-size: 0.9em;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 20px;
+            }
+
+            .title h1 {
+                font-size: 2em;
+            }
+
+            .hud-top {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .battery-bar, .sanity-bar {
+                width: 80px;
+            }
+        }
+
+        /* Loading screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #0f0;
+        }
+
+        .loading-text {
+            font-size: 2em;
+            font-family: 'VT323', monospace;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px #0f0;
+        }
+
+        .loading-bar {
+            width: 300px;
+            height: 30px;
+            border: 2px solid #0f0;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+        }
+
+        .loading-fill {
+            height: 100%;
+            background: #0f0;
+            width: 0%;
+            animation: loading 3s ease-in-out forwards;
+            box-shadow: 0 0 20px #0f0;
+        }
+
+        @keyframes loading {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-text">INITIALIZING NIGHT VISION...</div>
+        <div class="loading-bar">
+            <div class="loading-fill"></div>
+        </div>
+        <div style="margin-top: 20px; font-family: 'VT323', monospace; font-size: 1.2em;">
+            HOLLOW CREEK PSYCHIATRIC FACILITY<br>
+            INVESTIGATION: SUBJECT 47<br>
+            [CONFIDENTIAL]
+        </div>
+    </div>
+
+    <!-- Camera HUD -->
+    <div class="hud">
+        <div class="hud-top">
+            <div class="recording">
+                <div class="rec-dot"></div>
+                <span>REC</span>
+            </div>
+            <div class="battery">
+                <span>BATTERY:</span>
+                <div class="battery-bar">
+                    <div class="battery-fill" id="batteryFill" style="width: 100%"></div>
+                </div>
+                <span id="batteryPercent">100%</span>
+            </div>
+            <div class="sanity">
+                <span>SANITY:</span>
+                <div class="sanity-bar">
+                    <div class="sanity-fill" id="sanityFill" style="width: 100%"></div>
+                </div>
+                <span id="sanityPercent">100%</span>
+            </div>
+        </div>
+        <div class="timestamp" id="timestamp">00:00:00</div>
+    </div>
+
+    <!-- Camera Effects -->
+    <div class="camera-overlay"></div>
+    <div class="grain"></div>
+    <div class="static-effect" id="staticEffect"></div>
+    <div class="blood-effect" id="bloodEffect"></div>
+
+    <!-- Game Container -->
+    <div class="game-container">
+        <div class="title">
+            <h1>HOLLOW CREEK ASYLUM</h1>
+            <div class="subtitle">[NIGHT VISION ACTIVE]</div>
+        </div>
+
+        <div class="location" id="location">LOCATION: MAIN GATE</div>
+
+        <div class="inventory hidden" id="inventory">
+            <div class="inventory-label">📦 INVENTORY:</div>
+        </div>
+
+        <div class="character-status" id="characters">
+            <div class="character" id="char-you">
+                <div class="character-icon">📹</div>
+                <div class="character-name">YOU</div>
+                <div class="character-state">Investigator</div>
+            </div>
+        </div>
+
+        <div class="story-section">
+            <div class="story-text" id="storyText"></div>
+        </div>
+
+        <div class="choices" id="choices"></div>
+    </div>
+
+    <script>
+        // Game State
+        const gameState = {
+            scene: 0,
+            battery: 100,
+            sanity: 100,
+            inventory: [],
+            companions: {
+                grimlock: false,
+                whiskers: false,
+                mortis: false
+            },
+            batteryDrainRate: 1,
+            time: 0
+        };
+
+        // Battery drain interval
+        let batteryInterval;
+        let timeInterval;
+
+        // Start battery drain
+        function startBatteryDrain() {
+            if (batteryInterval) clearInterval(batteryInterval);
+            batteryInterval = setInterval(() => {
+                if (gameState.battery > 0) {
+                    gameState.battery -= gameState.batteryDrainRate;
+                    if (gameState.battery < 0) gameState.battery = 0;
+                    updateBattery();
+                    
+                    // Battery warnings
+                    if (gameState.battery <= 0) {
+                        // Game over
+                        showScene({
+                            location: "SYSTEM ERROR",
+                            text: "Your night vision camera has died. In the pitch black darkness of Hollow Creek Asylum, you are defenseless. You hear something approaching... something that's been hunting you.\n\n[BATTERY DEPLETED]\n[RECORDING TERMINATED]",
+                            choices: [
+                                { text: "RESTART INVESTIGATION", action: () => restartGame(), class: "restart" }
+                            ]
+                        });
+                        clearInterval(batteryInterval);
+                        clearInterval(timeInterval);
+                    }
+                }
+            }, 3000);
+        }
+
+        // Start time counter
+        function startTime() {
+            if (timeInterval) clearInterval(timeInterval);
+            timeInterval = setInterval(() => {
+                gameState.time++;
+                updateTimestamp();
+            }, 1000);
+        }
+
+        function updateTimestamp() {
+            const hours = Math.floor(gameState.time / 3600);
+            const minutes = Math.floor((gameState.time % 3600) / 60);
+            const seconds = gameState.time % 60;
+            document.getElementById('timestamp').textContent = 
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function updateBattery() {
+            const fill = document.getElementById('batteryFill');
+            const percent = document.getElementById('batteryPercent');
+            fill.style.width = gameState.battery + '%';
+            percent.textContent = Math.floor(gameState.battery) + '%';
+            
+            fill.className = 'battery-fill';
+            if (gameState.battery < 30) fill.classList.add('low');
+            if (gameState.battery < 10) fill.classList.add('critical');
+        }
+
+        function updateSanity() {
+            const fill = document.getElementById('sanityFill');
+            const percent = document.getElementById('sanityPercent');
+            fill.style.width = gameState.sanity + '%';
+            percent.textContent = Math.floor(gameState.sanity) + '%';
+            
+            fill.className = 'sanity-fill';
+            if (gameState.sanity < 50) fill.classList.add('low');
+            if (gameState.sanity < 25) fill.classList.add('critical');
+        }
+
+        function changeSanity(amount) {
+            gameState.sanity += amount;
+            if (gameState.sanity > 100) gameState.sanity = 100;
+            if (gameState.sanity < 0) gameState.sanity = 0;
+            updateSanity();
+
+            if (amount < 0) {
+                // Show blood effect
+                const blood = document.getElementById('bloodEffect');
+                blood.classList.add('active');
+                setTimeout(() => blood.classList.remove('active'), 500);
+            }
+        }
+
+        function changeBattery(amount) {
+            gameState.battery += amount;
+            if (gameState.battery > 100) gameState.battery = 100;
+            if (gameState.battery < 0) gameState.battery = 0;
+            updateBattery();
+        }
+
+        function addItem(item) {
+            if (!gameState.inventory.includes(item)) {
+                gameState.inventory.push(item);
+                updateInventory();
+            }
+        }
+
+        function updateInventory() {
+            const inv = document.getElementById('inventory');
+            if (gameState.inventory.length > 0) {
+                inv.classList.remove('hidden');
+                inv.innerHTML = '<div class="inventory-label">📦 INVENTORY:</div>';
+                gameState.inventory.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'item';
+                    itemDiv.textContent = item;
+                    inv.appendChild(itemDiv);
+                });
+            } else {
+                inv.classList.add('hidden');
+            }
+        }
+
+        function updateCharacters() {
+            const container = document.getElementById('characters');
+            container.innerHTML = `
+                <div class="character" id="char-you">
+                    <div class="character-icon">📹</div>
+                    <div class="character-name">YOU</div>
+                    <div class="character-state">Investigator</div>
+                </div>
+            `;
+
+            if (gameState.companions.grimlock) {
+                container.innerHTML += `
+                    <div class="character ${!gameState.companions.grimlock || gameState.scene >= 6 ? 'dead' : ''}" id="char-grimlock">
+                        <div class="character-icon">🧌</div>
+                        <div class="character-name">GRIMLOCK</div>
+                        <div class="character-state">The Troll</div>
+                    </div>
+                `;
+            }
+
+            if (gameState.companions.whiskers) {
+                container.innerHTML += `
+                    <div class="character" id="char-whiskers">
+                        <div class="character-icon">🦦</div>
+                        <div class="character-name">WHISKERS</div>
+                        <div class="character-state">${gameState.scene >= 9 ? 'Brave Survivor' : 'Frightened Patient'}</div>
+                    </div>
+                `;
+            }
+
+            if (gameState.companions.mortis) {
+                container.innerHTML += `
+                    <div class="character" id="char-mortis">
+                        <div class="character-icon">💀</div>
+                        <div class="character-name">MORTIS</div>
+                        <div class="character-state">Dr. Mortimer's Assistant</div>
+                    </div>
+                `;
+            }
+        }
+
+        function showStatic() {
+            const static = document.getElementById('staticEffect');
+            static.classList.add('active');
+            setTimeout(() => static.classList.remove('active'), 200);
+        }
+
+        function showScene(scene) {
+            document.getElementById('location').textContent = scene.location || 'UNKNOWN LOCATION';
+            document.getElementById('storyText').innerHTML = scene.text;
+            
+            const choicesDiv = document.getElementById('choices');
+            choicesDiv.innerHTML = '';
+            
+            scene.choices.forEach(choice => {
+                const btn = document.createElement('div');
+                btn.className = 'choice';
+                if (choice.class) btn.classList.add(choice.class);
+                if (choice.disabled) btn.classList.add('disabled');
+                
+                let displayText = choice.text;
+                if (choice.batteryReq && gameState.battery < choice.batteryReq) {
+                    displayText += ` [BATTERY TOO LOW: ${choice.batteryReq}% REQUIRED]`;
+                    btn.classList.add('disabled');
+                }
+                
+                btn.textContent = displayText;
+                btn.onclick = () => {
+                    if (!choice.disabled && (!choice.batteryReq || gameState.battery >= choice.batteryReq)) {
+                        if (choice.action) choice.action();
+                        showStatic();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                };
+                choicesDiv.appendChild(btn);
+            });
+
+            updateCharacters();
+        }
+
+        // Game Scenes
+        const scenes = [
+            // Scene 0: Opening
+            {
+                location: "LOCATION: ASYLUM MAIN GATE",
+                text: `Your night vision camera flickers to life, bathing everything in eerie green light. The Hollow Creek Psychiatric Facility looms before you—a monument to decades of suffering and madness.
+
+You're here for one reason: Your sister, Emma, disappeared three years ago. Her last known location was this forsaken place. The police closed the case. But you found something they missed: a single photograph, stamped with "Subject 47" on the back.
+
+The gates are rusted open, as if inviting you in. Your camera's battery reads 100%. You adjust your night vision and step forward.
+
+The asylum awaits.`,
+                choices: [
+                    { text: "Enter the asylum", action: () => goToScene(1) }
+                ]
+            },
+
+            // Scene 1: Reception Hall
+            {
+                location: "LOCATION: RECEPTION HALL",
+                text: `Through your night vision, the reception hall looks like something from a nightmare. Patient files scatter the floor like fallen leaves. A broken chandelier hangs by a thread. The walls are covered in bizarre symbols—drawings made by inmates, or something worse.
+
+Your camera picks up movement. Two figures emerge from the darkness. Through the green haze, you see something impossible: A massive troll, nearly seven feet tall with moss growing on his skin. Beside him, a humanoid meerkat in tattered patient clothes.
+
+They stop, raising their hands peacefully.
+
+"Please," the troll's voice rumbles, "we don't want trouble. I'm Grimlock. This is Whiskers. We... we used to be human."`,
+                choices: [
+                    { text: "Lower your camera and talk to them", action: () => { changeSanity(-5); goToScene(2); } },
+                    { text: "Keep recording and ask what happened", action: () => goToScene(2) }
+                ]
+            },
+
+            // Scene 2: The Bargain
+            {
+                location: "LOCATION: RECEPTION HALL",
+                text: `<div class="document">RECORDING LOG: Subjects identified as "Grimlock" (Patient #089) and "Whiskers" (Patient #112). Both show signs of advanced genetic mutation. Recommending immediate documentation.</div>
+
+Grimlock speaks slowly: "Dr. Mortimer experimented on us. Changed us into... this. We've been trapped here for months—maybe years. Time doesn't work right in this place."
+
+Whiskers's voice is surprisingly cultured despite his appearance: "We've seen things in the basement. Heard screaming from below. If you're looking for someone, they might be down there. But we can't go alone. The creature..."
+
+Grimlock cuts in: "Help us escape, and we'll help you find your sister. There's a back exit, but it's locked from the inside. We need to go through the basement to reach the control room. Together, we might survive."
+
+Your battery: ${Math.floor(gameState.battery)}% | A dangerous journey awaits.`,
+                choices: [
+                    { 
+                        text: "Accept their help - form an alliance", 
+                        action: () => { 
+                            gameState.companions.grimlock = true; 
+                            gameState.companions.whiskers = true;
+                            changeSanity(-10);
+                            goToScene(3); 
+                        } 
+                    },
+                    { 
+                        text: "Go alone - you can't trust mutants", 
+                        action: () => goToScene(2.5),
+                        class: "dangerous"
+                    }
+                ]
+            },
+
+            // Scene 2.5: Going alone (bad ending path)
+            {
+                location: "LOCATION: DARK CORRIDOR",
+                text: `<div class="warning">CRITICAL DECISION: PROCEEDING ALONE</div>
+
+You decide to trust no one. Grimlock and Whiskers watch sadly as you walk away into the darkness.
+
+"You won't make it," Whiskers calls after you. "No one does. Not alone."
+
+You ignore him. Your camera light is all you have now. The corridor ahead descends into absolute darkness. You hear something moving in the walls...
+
+<div class="warning">Your sanity is deteriorating rapidly in isolation</div>`,
+                choices: [
+                    { text: "Continue forward alone", action: () => { changeSanity(-30); goToScene(2.6); }, class: "critical" },
+                    { text: "Go back and accept their help", action: () => { gameState.companions.grimlock = true; gameState.companions.whiskers = true; goToScene(3); } }
+                ]
+            },
+
+            // Scene 2.6: Alone bad ending
+            {
+                location: "LOCATION: UNKNOWN",
+                text: `Your camera captures your final moments.
+
+Without allies, without guidance, you wander deeper into the asylum's maze. Your sanity fractures. You see things that aren't there. You hear your sister calling your name.
+
+The creature finds you in the dark. Your camera falls, still recording as something massive fills the frame.
+
+The last sound recorded is your scream.
+
+[INVESTIGATION FAILED]
+[SUBJECT 47: STILL MISSING]
+[INVESTIGATOR STATUS: DECEASED]`,
+                choices: [
+                    { text: "RESTART INVESTIGATION", action: () => restartGame(), class: "restart" }
+                ]
+            },
+
+            // Scene 3: Doctor's Office
+            {
+                location: "LOCATION: DR. MORTIMER'S OFFICE",
+                text: `<div class="document">BATTERY: ${Math.floor(gameState.battery)}% | SANITY: ${Math.floor(gameState.sanity)}%</div>
+
+Your unlikely alliance moves through the asylum. Grimlock's strength opens blocked doors. Whiskers's knowledge of the layout guides you. Your camera documents everything.
+
+You reach Dr. Mortimer's office. Books line the walls—texts on genetic manipulation, consciousness transfer, forbidden sciences. Whiskers finds a leather journal.
+
+"Subject 47," Whiskers reads aloud, his paws trembling. "Female, age 26. Perfect candidate for Project Transcendence. Subject shows unique compatibility with the Entity. Transference scheduled for—"
+
+He stops. Shows you a photograph paper-clipped to the page.
+
+Your sister. Emma. Labeled "Subject 47."
+
+Grimlock's voice is grim: "The basement. That's where he kept his 'special' subjects. But that's also where IT lives. The thing that guards the lower levels."
+
+<div class="warning">SANITY CHECK: Discovering your sister was experimented on</div>`,
+                choices: [
+                    { text: "Search the office for more clues", action: () => { addItem('DR. MORTIMER\'S JOURNAL'); addItem('EMMA\'S PHOTO'); changeBattery(15); changeSanity(-10); goToScene(4); } },
+                    { text: "Go to the basement immediately", action: () => { addItem('EMMA\'S PHOTO'); changeSanity(-15); goToScene(4); }, class: "dangerous" }
+                ]
+            },
+
+            // Scene 4: Basement Descent
+            {
+                location: "LOCATION: BASEMENT STAIRWELL",
+                text: `Your camera struggles in the dense darkness of the basement. Even with night vision, you can barely see ten feet ahead. The air is thick, humid, carrying a smell of rot and something else—something alive.
+
+Grimlock leads the way, his massive form barely fitting through the narrow passages. Whiskers stays close to you, his small body trembling.
+
+"The creature," Whiskers whispers, "it was Dr. Mortimer's greatest achievement. He called it Project Ouroboros. A fusion of human consciousness and serpent biology. Driven mad by the process."
+
+The corridor opens into a vast chamber. Your camera picks up movement in the water covering the floor. Something massive. Something that shouldn't exist.
+
+A hissing sound fills the air—deep, resonant, hungry.
+
+<div class="warning">DANGER: HOSTILE ENTITY DETECTED</div>
+
+Your battery: ${Math.floor(gameState.battery)}% | You'll need power to survive this.`,
+                choices: [
+                    { 
+                        text: "Let Grimlock scout ahead while you prepare", 
+                        action: () => { changeSanity(-15); goToScene(5); }
+                    },
+                    { 
+                        text: "Use your camera's high-intensity light to scan the area",
+                        action: () => { changeBattery(-20); changeSanity(-10); goToScene(5); },
+                        class: "dangerous",
+                        batteryReq: 20
+                    }
+                ]
+            },
+
+            // Scene 5: The Anaconda
+            {
+                location: "LOCATION: FLOODED CHAMBER",
+                text: `<div class="warning">!!! EXTREME DANGER !!!</div>
+
+It drops from the ceiling like death itself.
+
+The anaconda is colossal—thirty feet of mutated muscle and scale. But it's wrong. So terribly wrong. Through your camera's night vision, you can see human faces pressed against its skin from within, mouths frozen in eternal screams. This is Project Ouroboros—dozens of test subjects fused into one abomination.
+
+It strikes with impossible speed.
+
+Grimlock shoves you aside as the serpent's coils wrap around his body. You hear bones crack. The troll roars in pain and defiance.
+
+"RUN!" he bellows, his eyes meeting your camera lens. "FIND THE TRUTH! TELL THE WORLD!"
+
+Whiskers grabs your arm, pulling you away. You're recording everything—Grimlock's sacrifice, the horror of the creature, the madness of this place.
+
+The last thing your camera captures of Grimlock is his body going limp in the serpent's crushing embrace.
+
+<div class="warning">COMPANION LOST: GRIMLOCK - STATUS: DECEASED</div>
+<div class="warning">SANITY SEVERELY IMPACTED</div>`,
+                choices: [
+                    { text: "Flee into the tunnels with Whiskers", action: () => { gameState.companions.grimlock = false; changeSanity(-25); goToScene(6); }, class: "critical" }
+                ]
+            },
+
+            // Scene 6: Separated
+            {
+                location: "LOCATION: UNKNOWN TUNNELS",
+                text: `You run blindly through the twisting passages, Whiskers's panicked squeaks echoing behind you. But in the chaos, in the darkness, you lose him.
+
+Your camera dies for a moment—complete blackness. When it flickers back on, you're alone.
+
+Grimlock is dead. Whiskers is gone. Your battery is draining. Your sanity is fracturing.
+
+But you didn't come this far to quit now. Emma is somewhere in this nightmare. You have to find her. You have to understand what happened.
+
+As your vision adjusts to the dim phosphorescent fungus growing on the walls, you realize you've stumbled into something significant. A laboratory. Dr. Mortimer's true workshop.
+
+<div class="document">RECORDING LOG: Subject alone. Showing signs of psychological distress. Recommending immediate extraction. Extraction not possible. Continuing investigation.</div>
+
+Battery: ${Math.floor(gameState.battery)}%`,
+                choices: [
+                    { text: "Explore the laboratory", action: () => { changeSanity(-10); goToScene(7); } },
+                    { text: "Search for Whiskers first", action: () => { changeBattery(-10); goToScene(7); } }
+                ]
+            },
+
+            // Scene 7: The Laboratory
+            {
+                location: "LOCATION: LABORATORY OF HORRORS",
+                text: `Your camera captures a cathedral of nightmares.
+
+Glass chambers line the walls, containing things that were once human. Failed experiments suspended in amber fluid. Bodies frozen mid-transformation. Equipment you can't begin to comprehend, all powered by some source that hums with unnatural energy.
+
+At the center: a chair fitted with restraints and crowned with a horrible apparatus of needles and wires. This is where the transformation happened. This is where your sister—
+
+"You found it."
+
+You spin around. Whiskers emerges from the shadows, but he's different. He stands taller. His eyes gleam with newfound courage. Behind him walks a skeleton in a pristine lab coat, carrying a lantern.
+
+"This is Mortis," Whiskers says, his voice steady now. "Dr. Mortimer's assistant—or what remains of him. And I... I understand now. Grimlock's sacrifice. It wasn't in vain. His courage awakened something in me."
+
+The skeleton's jaw clicks as he speaks: "I can help you find your sister. But first, you must understand what you're dealing with."
+
+<div class="document">BATTERY FOUND: +30% | SANITY STABILIZING</div>`,
+                choices: [
+                    { text: "Listen to Mortis's story", action: () => { changeBattery(30); gameState.companions.whiskers = true; gameState.companions.mortis = true; changeSanity(10); goToScene(8); } }
+                ]
+            },
+
+            // Scene 8: The Truth
+            {
+                location: "LOCATION: MORTIMER'S LABORATORY",
+                text: `Mortis's hollow voice fills the chamber: "I was Dr. Mortimer's student. I believed in transcending human limitations. But he went too far. Beneath this asylum, he found something ancient. An entity that feeds on consciousness, on souls."
+
+Your camera documents everything as Mortis continues: "He merged science with that ancient evil. Project Ouroboros was just one result. There were others. Grimlock. Whiskers. Me." The skeleton gestures to himself. "I tried to stop him. He... reduced me to this."
+
+Whiskers adds, his voice firm: "Your sister—Subject 47—she was to be the final piece. Dr. Mortimer planned to fuse himself with the entity, using Emma's consciousness as the binding agent. But the process was interrupted. She's still here. Still alive. But trapped."
+
+Mortis points to a sealed door: "The entity is beyond that door. Mortimer fused himself with it three years ago. Your sister's consciousness is still intact within the entity, but we must destroy it to free her."
+
+<div class="warning">FINAL CONFRONTATION APPROACHING</div>
+
+Battery: ${Math.floor(gameState.battery)}% | You'll need power for what comes next.`,
+                choices: [
+                    { 
+                        text: "Prepare to face the entity",
+                        action: () => { addItem('FREQUENCY DISRUPTOR'); changeSanity(-20); goToScene(9); },
+                        class: "critical"
+                    },
+                    { 
+                        text: "Search for more batteries first", 
+                        action: () => { addItem('FREQUENCY DISRUPTOR'); changeBattery(20); goToScene(9); }
+                    }
+                ]
+            },
+
+            // Scene 9: The Entity Chamber
+            {
+                location: "LOCATION: THE ENTITY'S DOMAIN",
+                text: `<div class="warning">!!! EXTREME DANGER - POINT OF NO RETURN !!!</div>
+
+You open the sealed door. Your camera struggles to process what it sees.
+
+The chamber beyond defies physics. Walls of pulsing organic tissue. Veins of sickly light. At the center floats a mass of writhing forms—Dr. Mortimer's ultimate creation. An amalgamation of all his experiments, sustained by stolen souls.
+
+You can see faces in the mass. Patients. Test subjects. And there—your camera zooms in—Emma's face, still conscious, still aware, trapped in the nightmare.
+
+Mortis hands you a device: "A frequency disruptor. It will break the entity's cohesion. But someone must get close enough to activate it."
+
+Whiskers steps forward without hesitation: "I'll do it. I've been running my whole life. Grimlock showed me what courage really means. This is my chance to save someone."
+
+<div class="document">COMPANION STATUS - WHISKERS: Determined to sacrifice himself for the mission</div>
+
+Battery: ${Math.floor(gameState.battery)}% | This will drain everything you have.`,
+                choices: [
+                    { 
+                        text: "Let Whiskers approach with the disruptor while you record",
+                        action: () => { changeBattery(-30); changeSanity(-20); goToScene(10); },
+                        class: "critical",
+                        batteryReq: 30
+                    },
+                    { 
+                        text: "You approach yourself - Whiskers has suffered enough",
+                        action: () => { changeBattery(-40); changeSanity(-30); goToScene(10.5); },
+                        class: "critical",
+                        batteryReq: 40
+                    }
+                ]
+            },
+
+            // Scene 10: The Disruption
+            {
+                location: "LOCATION: ENTITY CHAMBER - CRITICAL EVENT",
+                text: `Your camera captures everything.
+
+Whiskers darts forward with impossible speed, dodging tentacles that erupt from the entity. You and Mortis work the transference chamber controls as the laboratory shakes with the entity's rage.
+
+The device activates.
+
+The entity SCREAMS—a sound containing the anguish of every soul it consumed. Your camera's audio clips. The visual feed distorts. But you keep recording.
+
+The entity's form breaks apart, revealing Dr. Mortimer's twisted remains at its core, his face frozen in eternal madness.
+
+Streams of light—freed souls—pour forth. Mortis guides them, searching, until he finds her.
+
+"THERE! SUBJECT 47!"
+
+Emma's consciousness flows into the transference chamber. Whiskers, brave Whiskers, throws himself at the entity's final attack, buying you precious seconds.
+
+The chamber hums with power. You see her—truly see her—your sister's essence, intact, preserved.
+
+<div class="document">TRANSFER COMPLETE: SUBJECT 47 EXTRACTED SUCCESSFULLY</div>
+<div class="document">ENTITY STATUS: COLLAPSING</div>`,
+                choices: [
+                    { text: "Complete the transfer and escape", action: () => { changeSanity(20); goToScene(11); }, class: "critical" }
+                ]
+            },
+
+            // Scene 10.5: Your sacrifice
+            {
+                location: "LOCATION: ENTITY CHAMBER - ALTERNATE PATH",
+                text: `You refuse to let anyone else die.
+
+Grabbing the disruptor from Whiskers, you run toward the entity yourself. Your camera bounces wildly, capturing flashes of horror—tentacles, faces screaming, Emma's terrified eyes.
+
+You activate the device at point-blank range.
+
+The entity shrieks and grabs you. For a moment, you're inside it—experiencing the agony of every soul it consumed. You see everything: Grimlock's final thoughts, the other patients, your sister's three years of torment.
+
+But the device works. The entity collapses.
+
+Whiskers and Mortis pull you free just as the chamber begins to collapse. Mortis guides Emma's consciousness into the portable matrix while Whiskers drags your barely-conscious body toward the exit.
+
+Your camera, miraculously, keeps recording.
+
+<div class="document">TRANSFER COMPLETE: SUBJECT 47 EXTRACTED</div>
+<div class="document">INVESTIGATOR STATUS: CRITICAL BUT STABLE</div>`,
+                choices: [
+                    { text: "Escape the collapsing asylum", action: () => { changeSanity(-10); goToScene(11); }, class: "critical" }
+                ]
+            },
+
+            // Scene 11: The Escape
+            {
+                location: "LOCATION: ASYLUM COLLAPSE",
+                text: `<div class="warning">STRUCTURAL INTEGRITY FAILING - IMMEDIATE EVACUATION REQUIRED</div>
+
+Everything happens at once. The entity collapses with an implosive roar. Dr. Mortimer's equipment overloads. The entire asylum begins to shake apart.
+
+Mortis's skeletal form begins to glow: "My purpose is complete. The souls are free. Your sister is safe. GO!"
+
+Whiskers grabs your hand: "He's right! This whole place is coming down!"
+
+You run together, your camera still recording—past the dissolved remains of the anaconda, up crumbling stairs, through collapsing corridors. The asylum is purging itself of decades of evil.
+
+You burst through a door into cool night air just as Hollow Creek Asylum collapses behind you in a cloud of dust and broken stone.
+
+You're outside. You're free. In your hand is the device containing Emma's consciousness—she can be restored.
+
+Whiskers stands beside you, no longer the trembling creature you first met, but a true hero.
+
+<div class="document">INVESTIGATION COMPLETE | SUBJECT 47: RECOVERED | FACILITY: DESTROYED</div>`,
+                choices: [
+                    { text: "Turn off the camera and look to the future", action: () => goToScene(12) }
+                ]
+            },
+
+            // Scene 12: Epilogue
+            {
+                location: "[RECORDING STOPPED]",
+                text: `Dawn breaks over the ruins of Hollow Creek Asylum.
+
+Emergency services arrive within the hour. You show them everything—your camera footage, Dr. Mortimer's crimes, the experiments, the suffering. The world will finally know the truth.
+
+Whiskers looks at you with his intelligent eyes: "What happens to me now?"
+
+You smile, exhausted but alive: "You're coming with me. You're a hero, Whiskers. You and Grimlock and Mortis—you saved my sister. You saved me."
+
+The meerkat nods, standing tall. Emma's consciousness is secure in the portable matrix. Medical experts say they can transfer her to a cloned body. She'll live again.
+
+As you walk toward the rising sun, you think of Grimlock's sacrifice, Mortis's redemption, and Whiskers's transformation from coward to hero.
+
+The camera footage will expose everything. Hollow Creek's nightmare is finally over.
+
+━━━━━━━━━━━━━━━━━━━━━━
+[INVESTIGATION COMPLETE]
+━━━━━━━━━━━━━━━━━━━━━━
+
+📹 Total Recording Time: ${Math.floor(gameState.time / 60)} minutes
+🔋 Final Battery: ${Math.floor(gameState.battery)}%
+🧠 Final Sanity: ${Math.floor(gameState.sanity)}%
+💀 Allies Lost: 1 (Grimlock)
+✨ Allies Saved: 1 (Whiskers)
+❤️ Sister's Status: RECOVERED
+🏆 Mission: SUCCESS`,
+                choices: [
+                    { text: "VIEW FINAL REPORT", action: () => goToScene(13) },
+                    { text: "START NEW INVESTIGATION", action: () => restartGame(), class: "restart" }
+                ]
+            },
+
+            // Scene 13: Six Months Later
+            {
+                location: "SIX MONTHS LATER - NEWS ARCHIVE FOOTAGE",
+                text: `<div class="document">NEWS REPORT - BREAKING STORY</div>
+
+"In what authorities are calling one of the most horrific cases of medical malpractice in modern history, the Hollow Creek Psychiatric Facility has been permanently shut down.
+
+Thanks to video evidence provided by an anonymous investigator, over 200 victims of illegal human experimentation have been identified. Dr. Marcus Mortimer, the facility's head researcher, was found to have conducted unauthorized genetic modification experiments on patients for over a decade.
+
+The investigator's sister, Emma Rodriguez, was successfully recovered and is currently undergoing rehabilitation. Medical teams used experimental consciousness transfer technology to restore her to a new body—a procedure that has opened new frontiers in medical science.
+
+In a bizarre twist, one of the facility's former patients—a genetically modified individual who calls himself 'Whiskers'—has become an advocate for survivors' rights and is working with authorities to identify other victims.
+
+The footage, which has been partially released to the public, shows disturbing images of the experiments and the final collapse of the facility. Several entities encountered in the footage remain unexplained by scientific authorities.
+
+One victim of the experiments, identified only as 'Grimlock,' is remembered as a hero who sacrificed himself to save others during the facility's final days."
+
+<div class="document">CASE STATUS: CLOSED | VICTIMS: IDENTIFIED | FACILITY: DEMOLISHED</div>`,
+                choices: [
+                    { text: "Continue to final chapter", action: () => goToScene(14) }
+                ]
+            },
+
+            // Scene 14: One Year Later
+            {
+                location: "ONE YEAR LATER - YOUR APARTMENT",
+                text: `You sit at your desk, reviewing the footage one last time before archiving it forever.
+
+Emma is in the next room—fully recovered, living her second chance at life. She doesn't remember much of her time as Subject 47, and you're grateful for that mercy.
+
+Whiskers visits every week. He's become something of a celebrity in certain circles—the face of survivors fighting for ethical treatment in medical research. He's found purpose in his transformation, something that was stolen from him but that he's reclaimed.
+
+The footage that was released sparked international reforms in psychiatric care and medical ethics. Hollow Creek's horror has led to new protections, new oversight, new hope that nothing like this will happen again.
+
+You think of Grimlock often. His sacrifice. His courage. You've established a memorial fund in his name—helping families of victims, supporting survivors, keeping his memory alive.
+
+Mortis found peace in those final moments, finally free from Mortimer's control. The souls he helped liberate have moved on.
+
+Your camera sits on the shelf now, retired. You'll never forget what you recorded in those hours of darkness. But you've also learned that sometimes, the bravest thing you can do is keep recording, keep bearing witness, keep fighting for the truth.
+
+Hollow Creek is gone. But its lessons remain.
+
+And in a small apartment in the city, a sister who was lost has been found. A hero stands tall despite his small stature. And an investigator finally sleeps without nightmares.
+
+The asylum's shadow is fading at last.
+
+━━━━━━━━━━━━━━━━━━━━━━
+[END OF RECORDING]
+[END OF STORY]
+━━━━━━━━━━━━━━━━━━━━━━`,
+                choices: [
+                    { text: "ROLL CREDITS", action: () => goToScene(15) }
+                ]
+            },
+
+            // Scene 15: Credits
+            {
+                location: "═══════════════════════════════",
+                text: `<div style="text-align: center; font-size: 1.4em; margin-bottom: 30px;">
+<div style="font-family: 'Creepster', cursive; font-size: 2em; color: #0f0; text-shadow: 0 0 20px #0f0; margin-bottom: 20px;">
+HOLLOW CREEK ASYLUM
+</div>
+<div style="font-family: 'VT323', monospace; color: #0a0; margin-bottom: 10px;">
+[THE NIGHT VISION FILES]
+</div>
+</div>
+
+<div style="text-align: center; line-height: 2.5; font-size: 1.1em;">
+
+━━━━━━━━━━━━━━━━━━━━━━
+<span style="color: #0ff;">CREATED BY</span>
+━━━━━━━━━━━━━━━━━━━━━━
+
+Game Concept & Story
+<span style="color: #0f0;">YOUR ORIGINAL VISION</span>
+
+Game Design & Development
+<span style="color: #0f0;">CLAUDE AI (ANTHROPIC)</span>
+
+Inspired By
+<span style="color: #0f0;">OUTLAST (RED BARRELS)</span>
+
+━━━━━━━━━━━━━━━━━━━━━━
+<span style="color: #0ff;">MAIN CHARACTERS</span>
+━━━━━━━━━━━━━━━━━━━━━━
+
+The Investigator
+<span style="color: #0f0;">YOU</span>
+
+Subject 47 / Emma Rodriguez
+<span style="color: #0f0;">YOUR SISTER</span>
+
+Patient #089 / Grimlock
+<span style="color: #f00;">DECEASED - HERO</span>
+
+Patient #112 / Whiskers
+<span style="color: #0f0;">SURVIVOR - BRAVE</span>
+
+Dr. Mortimer's Assistant / Mortis
+<span style="color: #0a0;">REDEEMED</span>
+
+━━━━━━━━━━━━━━━━━━━━━━
+<span style="color: #0ff;">ANTAGONISTS</span>
+━━━━━━━━━━━━━━━━━━━━━━
+
+Dr. Marcus Mortimer
+<span style="color: #f00;">THE MAD SCIENTIST</span>
+
+Project Ouroboros
+<span style="color: #f00;">THE ANACONDA</span>
+
+The Entity
+<span style="color: #f00;">THE ABOMINATION</span>
+
+━━━━━━━━━━━━━━━━━━━━━━
+<span style="color: #0ff;">SPECIAL FEATURES</span>
+━━━━━━━━━━━━━━━━━━━━━━
+
+Night Vision System
+Battery Management
+Sanity Meter
+Multiple Endings
+Interactive Story
+Document System
+Found Footage Horror
+
+━━━━━━━━━━━━━━━━━━━━━━
+<span style="color: #0ff;">STATISTICS</span>
+━━━━━━━━━━━━━━━━━━━━━━
+
+Total Scenes: 17
+Story Branches: 3
+Possible Endings: 4
+Recording Time: ${Math.floor(gameState.time / 60)} minutes
+Battery Used: ${100 - Math.floor(gameState.battery)}%
+Sanity Lost: ${100 - Math.floor(gameState.sanity)}%
+Documents Found: ${gameState.inventory.length}
+Lives Saved: 2 (Emma, Whiskers)
+Heroes Lost: 1 (Grimlock)
+
+━━━━━━━━━━━━━━━━━━━━━━
+<span style="color: #0ff;">SPECIAL THANKS</span>
+━━━━━━━━━━━━━━━━━━━━━━
+
+To all survivors of unethical
+medical experimentation
+
+To those who expose the truth
+no matter the cost
+
+To the brave ones who sacrifice
+themselves for others
+
+━━━━━━━━━━━━━━━━━━━━━━
+<span style="color: #0ff;">IN MEMORY OF</span>
+━━━━━━━━━━━━━━━━━━━━━━
+
+<span style="color: #0f0; font-size: 1.3em;">GRIMLOCK</span>
+Patient #089
+<span style="font-style: italic; color: #0a0;">
+"His sacrifice gave others a chance to live.
+His courage inspired a coward to become a hero.
+His memory will never fade."
+</span>
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+<div style="margin-top: 30px; font-family: 'VT323', monospace; font-size: 1.5em; color: #0f0; animation: flicker 2s infinite;">
+[REC STOPPED]
+</div>
+
+<div style="margin-top: 20px; color: #0a0; font-size: 0.9em;">
+This is a work of interactive fiction.
+Any resemblance to real persons, living or dead,
+or actual events is purely coincidental.
+</div>
+
+<div style="margin-top: 30px; font-size: 1.2em; color: #0ff;">
+Thank you for playing
+HOLLOW CREEK ASYLUM
+</div>
+
+<div style="margin-top: 40px; font-size: 1.1em; color: #0f0;">
+━━━━━━━━━━━━━━━━━━━━━━
+© 2024 - Interactive Horror Experience
+━━━━━━━━━━━━━━━━━━━━━━
+</div>
+
+</div>`,
+                choices: [
+                    { text: "RETURN TO MAIN MENU", action: () => restartGame(), class: "restart" },
+                    { text: "VIEW ALTERNATE ENDINGS", action: () => goToScene(16) }
+                ]
+            },
+
+            // Scene 16: Alternate Endings Info
+            {
+                location: "ALTERNATE ENDINGS GUIDE",
+                text: `<div style="text-align: center; font-size: 1.3em; margin-bottom: 20px; color: #0ff;">
+MULTIPLE PATHS AVAILABLE
+</div>
+
+The story of Hollow Creek Asylum has multiple possible outcomes based on your choices:
+
+<div class="document">
+ENDING 1: "BATTERY DEPLETION"
+If your battery runs out completely, you die in the darkness. The investigation fails. Emma remains lost forever.
+<span style="color: #f00;">Status: BAD ENDING</span>
+</div>
+
+<div class="document">
+ENDING 2: "ALONE IN THE DARK"
+If you refuse to trust Grimlock and Whiskers and go alone, you don't survive the asylum's horrors. The creature finds you.
+<span style="color: #f00;">Status: BAD ENDING</span>
+</div>
+
+<div class="document">
+ENDING 3: "THE INVESTIGATOR'S SACRIFICE"
+If you choose to activate the disruptor yourself instead of Whiskers, you survive but are severely traumatized. Emma is still saved, but you bear permanent psychological scars.
+<span style="color: #ff0;">Status: BITTERSWEET ENDING</span>
+</div>
+
+<div class="document">
+ENDING 4: "DAWN OF HOPE"
+If you work together with your companions, manage your resources well, and make it through to the end, everyone who can be saved is saved. Emma lives, Whiskers becomes a hero, and the truth is exposed.
+<span style="color: #0f0;">Status: GOOD ENDING (YOU ACHIEVED THIS)</span>
+</div>
+
+<div style="margin-top: 30px; padding: 20px; background: rgba(0, 50, 0, 0.5); border: 2px solid #0f0;">
+<div style="color: #0ff; font-weight: bold; margin-bottom: 10px;">KEY CHOICES THAT MATTER:</div>
+• Do you trust Grimlock and Whiskers?
+• Do you manage your battery carefully?
+• Do you search for extra supplies?
+• Who makes the final sacrifice?
+• Do you maintain your sanity?
+</div>
+
+<div style="margin-top: 30px; text-align: center; color: #0f0; font-size: 1.2em;">
+Every choice has consequences.
+Every ending tells a different story.
+Will you try again and find another path?
+</div>`,
+                choices: [
+                    { text: "START NEW INVESTIGATION", action: () => restartGame(), class: "restart" },
+                    { text: "VIEW CREDITS AGAIN", action: () => goToScene(15) }
+                ]
+            }
+        ];
+
+        function goToScene(sceneNum) {
+            gameState.scene = sceneNum;
+            showScene(scenes[sceneNum]);
+        }
+
+        function restartGame() {
+            gameState.scene = 0;
+            gameState.battery = 100;
+            gameState.sanity = 100;
+            gameState.inventory = [];
+            gameState.companions = { grimlock: false, whiskers: false, mortis: false };
+            gameState.time = 0;
+            updateBattery();
+            updateSanity();
+            updateInventory();
+            goToScene(0);
+            startBatteryDrain();
+            startTime();
+        }
+
+        // Initialize game
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loadingScreen').classList.add('hidden');
+                goToScene(0);
+                startBatteryDrain();
+                startTime();
+            }, 3000);
+        });
+    </script>
+</body>
+</html>
